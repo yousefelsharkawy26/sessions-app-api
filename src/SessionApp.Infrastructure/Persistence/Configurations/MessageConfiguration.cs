@@ -10,9 +10,18 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
     {
         builder.HasKey(m => m.Id);
 
-        builder.Property(m => m.Content)
+        builder.Property(m => m.Ciphertext)
             .IsRequired()
             .HasColumnType("text");
+
+        builder.Property(m => m.EphemeralKey)
+            .IsRequired()
+            .HasMaxLength(256);
+
+        builder.Property(m => m.SignedPrekeyIdUsed)
+            .IsRequired();
+
+        builder.Property(m => m.OneTimePrekeyIdUsed);
 
         builder.HasOne(m => m.Sender)
             .WithMany()

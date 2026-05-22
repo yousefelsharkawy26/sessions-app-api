@@ -9,7 +9,10 @@ public class MessageDto
     public required string SenderUsername { get; set; }
     public required string ReceiverId { get; set; }
     public required string ReceiverUsername { get; set; }
-    public required string Content { get; set; }
+    public required string Ciphertext { get; set; }
+    public required string EphemeralKey { get; set; }
+    public int SignedPrekeyIdUsed { get; set; }
+    public int? OneTimePrekeyIdUsed { get; set; }
     public DateTime SentAt { get; set; }
     public DateTime? ReadAt { get; set; }
 }

@@ -11,7 +11,10 @@ public record SendMessageCommand : IRequest<BaseResponse<MessageDto>>
 {
     public required string SenderId { get; init; }
     public required string ReceiverUsername { get; init; }
-    public required string Content { get; init; }
+    public required string Ciphertext { get; init; }
+    public required string EphemeralKey { get; init; }
+    public int SignedPrekeyIdUsed { get; init; }
+    public int? OneTimePrekeyIdUsed { get; init; }
 }
 
 public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, BaseResponse<MessageDto>>
@@ -59,7 +62,10 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             Sender = sender,
             ReceiverId = receiver.Id,
             Receiver = receiver,
-            Content = request.Content,
+            Ciphertext = request.Ciphertext,
+            EphemeralKey = request.EphemeralKey,
+            SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
+            OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
             SentAt = DateTime.UtcNow
         };
 
@@ -73,7 +79,10 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SenderUsername = sender.UserName!,
             ReceiverId = message.ReceiverId,
             ReceiverUsername = receiver.UserName!,
-            Content = message.Content,
+            Ciphertext = message.Ciphertext,
+            EphemeralKey = message.EphemeralKey,
+            SignedPrekeyIdUsed = message.SignedPrekeyIdUsed,
+            OneTimePrekeyIdUsed = message.OneTimePrekeyIdUsed,
             SentAt = message.SentAt,
             ReadAt = message.ReadAt
         };

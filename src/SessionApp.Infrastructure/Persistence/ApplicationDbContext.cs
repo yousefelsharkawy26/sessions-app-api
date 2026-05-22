@@ -14,6 +14,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     }
 
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<PrekeyBundle> PrekeyBundles => Set<PrekeyBundle>();
+    public DbSet<OneTimePrekey> OneTimePrekeys => Set<OneTimePrekey>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

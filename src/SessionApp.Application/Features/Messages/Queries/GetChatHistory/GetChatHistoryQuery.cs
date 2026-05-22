@@ -37,10 +37,13 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
             {
                 Id = m.Id,
                 SenderId = m.SenderId,
-                SenderUsername = m.SenderId == request.UserId ? m.Sender!.UserName! : otherUser.UserName!,
+                SenderUsername = m.Sender!.UserName!,
                 ReceiverId = m.ReceiverId,
-                ReceiverUsername = m.ReceiverId == request.UserId ? m.Sender!.UserName! : otherUser.UserName!,
-                Content = m.Content,
+                ReceiverUsername = m.Receiver!.UserName!,
+                Ciphertext = m.Ciphertext,
+                EphemeralKey = m.EphemeralKey,
+                SignedPrekeyIdUsed = m.SignedPrekeyIdUsed,
+                OneTimePrekeyIdUsed = m.OneTimePrekeyIdUsed,
                 SentAt = m.SentAt,
                 ReadAt = m.ReadAt
             })

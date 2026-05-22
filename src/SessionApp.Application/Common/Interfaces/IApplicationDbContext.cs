@@ -9,5 +9,7 @@ public interface IApplicationDbContext
 {
     DbSet<ApplicationUser> Users { get; }
     DbSet<Message> Messages { get; }
+    DbSet<PrekeyBundle> PrekeyBundles { get; }
+    DbSet<OneTimePrekey> OneTimePrekeys { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

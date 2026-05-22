@@ -17,7 +17,10 @@ public class MessageController : ApiControllerBase
         {
             SenderId = CurrentUserId!,
             ReceiverUsername = request.ReceiverUsername,
-            Content = request.Content
+            Ciphertext = request.Ciphertext,
+            EphemeralKey = request.EphemeralKey,
+            SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
+            OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed
         });
 
         if (!result.IsSuccess)
@@ -47,5 +50,8 @@ public class MessageController : ApiControllerBase
 public record SendMessageRequest
 {
     public required string ReceiverUsername { get; init; }
-    public required string Content { get; init; }
+    public required string Ciphertext { get; init; }
+    public required string EphemeralKey { get; init; }
+    public int SignedPrekeyIdUsed { get; init; }
+    public int? OneTimePrekeyIdUsed { get; init; }
 }
