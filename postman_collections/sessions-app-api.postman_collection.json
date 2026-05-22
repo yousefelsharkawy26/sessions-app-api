@@ -1,0 +1,1376 @@
+{
+  "info": {
+    "_postman_id": "f2b3e839-50c1-4c6e-b6a3-67fbcf4ad94f",
+    "name": "Session App API",
+    "description": "Comprehensive Postman Collection for Session App Clean Architecture Messaging API. Includes authentication, profile management, Signal-style prekey management (X3DH), direct and group messaging, WebRTC call signaling, privacy shield blocklist, muted chats, message reaction, and attachments.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alice\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Registers a new user without requiring email or phone number. Returns the username, JWT token, and a 12-word mnemonic recovery phrase."
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.isSuccess && jsonData.data && jsonData.data.token) {",
+                  "    pm.collectionVariables.set(\"authToken\", jsonData.data.token);",
+                  "}"
+                ],
+                "type": "javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alice\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates a user. The test script automatically extracts the JWT token and saves it to the collection variable `authToken`."
+          },
+          "response": []
+        },
+        {
+          "name": "Recover Password (Mnemonic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alice\",\n  \"recoveryPhrase\": \"word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/recover-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "recover-password"
+              ]
+            },
+            "description": "Resets the user's password using their 12-word mnemonic recovery phrase. Subject to progressive lockout protection on failure."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Current Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "me"
+              ]
+            },
+            "description": "Gets the current user's profile details."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Alice Smith\",\n  \"bio\": \"Living on the edge\",\n  \"profilePictureUrl\": \"\",\n  \"isPrivate\": false,\n  \"metadata\": \"{\\\"client_theme\\\": \\\"dark\\\"}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "update"
+              ]
+            },
+            "description": "Updates profile settings including display name, bio, avatar, private flag, and client metadata JSON."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/search?query=alice",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "alice"
+                }
+              ]
+            },
+            "description": "Search public user profiles. Private profiles and blocked connections are automatically filtered out."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Keys (X3DH Cryptography)",
+      "item": [
+        {
+          "name": "Upload Prekeys",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"primary\",\n  \"deviceName\": \"Primary Device\",\n  \"identityKey\": \"alice_identity_key_base64\",\n  \"signedPrekey\": \"alice_signed_prekey_base64\",\n  \"signature\": \"alice_signature_base64\",\n  \"signedPrekeyId\": 100,\n  \"oneTimePrekeys\": [\n    { \"keyId\": 1001, \"keyData\": \"alice_otp_1\" },\n    { \"keyId\": 1002, \"keyData\": \"alice_otp_2\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/keys/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "keys",
+                "upload"
+              ]
+            },
+            "description": "Uploads the client's public identity keys, signed prekeys, and a pool of one-time prekeys for initial configuration or replenishment."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Prekey Bundle",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/keys/bundle/bob",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "keys",
+                "bundle",
+                "bob"
+              ]
+            },
+            "description": "Fetches Bob's cryptographic prekey bundle. Vends a single OTP (if available) and removes it from the server database."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Prekey Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/keys/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "keys",
+                "status"
+              ]
+            },
+            "description": "Returns the number of remaining one-time prekeys and checks if replenishment is required."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Messaging",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverUsername\": \"bob\",\n  \"ciphertext\": \"encrypted_alice_to_bob_ciphertext\",\n  \"ephemeralKey\": \"alice_ephemeral_key\",\n  \"signedPrekeyIdUsed\": 200,\n  \"oneTimePrekeyIdUsed\": 2001,\n  \"burnAfterSeconds\": null,\n  \"parentMessageId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "send"
+              ]
+            },
+            "description": "Sends an E2EE direct message to a target user. Includes optional parameters for self-destruct (burn-on-read) and message threading/quoting."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Direct Chat History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/message/history?username=bob&pageNumber=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "bob"
+                },
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Retrieves direct messaging history with paging. Returns details about delivery/read receipts, replies, and muting states."
+          },
+          "response": []
+        },
+        {
+          "name": "Retract Message (Delete for Everyone)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/message/3f1ad270-ffff-4ffe-a0b4-0232db7b23d2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "3f1ad270-ffff-4ffe-a0b4-0232db7b23d2"
+              ]
+            },
+            "description": "Deletes a message from the database for everyone. Subject to sender validation."
+          },
+          "response": []
+        },
+        {
+          "name": "React to Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messageId\": \"3f1ad270-ffff-4ffe-a0b4-0232db7b23d2\",\n  \"reaction\": \"encrypted_emoji_payload\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/react",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "react"
+              ]
+            },
+            "description": "Adds or removes an E2EE encrypted emoji reaction on a message."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Messages Staging Delivered",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  \"3f1ad270-ffff-4ffe-a0b4-0232db7b23d2\"\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/deliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "deliver"
+              ]
+            },
+            "description": "Confirm delivery of one or more offline messages."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Messages Read",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  \"3f1ad270-ffff-4ffe-a0b4-0232db7b23d2\"\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "read"
+              ]
+            },
+            "description": "Explicitly marks conversation messages as read and notifies the counterpart."
+          },
+          "response": []
+        },
+        {
+          "name": "Mute Conversation",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"bob\",\n  \"groupId\": null,\n  \"durationSeconds\": 3600\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/mute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "mute"
+              ]
+            },
+            "description": "Mutes a direct or group conversation for a given duration."
+          },
+          "response": []
+        },
+        {
+          "name": "Unmute Conversation",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"bob\",\n  \"groupId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/message/unmute",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message",
+                "unmute"
+              ]
+            },
+            "description": "Unmutes a previously muted direct or group conversation."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Group Chats",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupName\": \"The Cryptographers\",\n  \"memberUsernames\": [\"bob\", \"charlie\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "create"
+              ]
+            },
+            "description": "Creates a new E2EE group chat. Automatically registers group SignalR hub channels."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Group Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"some-group-guid\",\n  \"username\": \"charlie\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/add-member",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "add-member"
+              ]
+            },
+            "description": "Adds a member to the group (Admin validation and Blocklist validation apply)."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Group Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"some-group-guid\",\n  \"username\": \"charlie\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/remove-member",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "remove-member"
+              ]
+            },
+            "description": "Removes a member from the group (requires Admin/Owner permissions)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"some-group-guid\",\n  \"username\": \"bob\",\n  \"role\": \"Admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/update-role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "update-role"
+              ]
+            },
+            "description": "Updates a group member's access tier (e.g. promoting a Member to Admin)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Group Metadata",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"some-group-guid\",\n  \"groupName\": \"Renamed Group\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/update-metadata",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "update-metadata"
+              ]
+            },
+            "description": "Modifies the group's name or metadata info (Admin permission enforced)."
+          },
+          "response": []
+        },
+        {
+          "name": "Pin Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messageId\": \"3f1ad270-ffff-4ffe-a0b4-0232db7b23d2\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/some-group-guid/pin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "some-group-guid",
+                "pin"
+              ]
+            },
+            "description": "Pins a message in the group chat. Only accessible to Admins and Owners."
+          },
+          "response": []
+        },
+        {
+          "name": "Unpin Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messageId\": \"3f1ad270-ffff-4ffe-a0b4-0232db7b23d2\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/group/some-group-guid/unpin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "some-group-guid",
+                "unpin"
+              ]
+            },
+            "description": "Unpins a previously pinned message in the group."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pinned Messages",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/group/some-group-guid/pinned",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "group",
+                "some-group-guid",
+                "pinned"
+              ]
+            },
+            "description": "Retrieves the list of pinned messages in the specified group."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Privacy Shield (Blocklist)",
+      "item": [
+        {
+          "name": "Block User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blockedUsername\": \"bob\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/block/block",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "block",
+                "block"
+              ]
+            },
+            "description": "Blocks a user. Blocks direct messages, call signaling, reactions, and search matches."
+          },
+          "response": []
+        },
+        {
+          "name": "Unblock User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blockedUsername\": \"bob\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/block/unblock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "block",
+                "unblock"
+              ]
+            },
+            "description": "Removes a block status on a user."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocked Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/block/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "block",
+                "list"
+              ]
+            },
+            "description": "Retrieves the list of users currently blocked by the requester."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "WebRTC Calls",
+      "item": [
+        {
+          "name": "Initiate Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverUsername\": \"bob\",\n  \"sdpOffer\": \"webrtc_sdp_offer_payload\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/call/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "call",
+                "initiate"
+              ]
+            },
+            "description": "Initiates an E2EE WebRTC call to Bob. Triggers the real-time SignalR `CallInitiated` event on Bob's active connections."
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"callerUsername\": \"alice\",\n  \"sdpAnswer\": \"webrtc_sdp_answer_payload\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/call/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "call",
+                "accept"
+              ]
+            },
+            "description": "Accepts a pending WebRTC call from Alice."
+          },
+          "response": []
+        },
+        {
+          "name": "Send ICE Candidate",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverUsername\": \"bob\",\n  \"candidate\": \"ice_candidate_json_payload\",\n  \"sdpMid\": \"audio_mid\",\n  \"sdpMLineIndex\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/call/ice-candidate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "call",
+                "ice-candidate"
+              ]
+            },
+            "description": "Relays WebRTC ICE candidate options to the calling partner."
+          },
+          "response": []
+        },
+        {
+          "name": "Decline Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"callerUsername\": \"alice\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/call/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "call",
+                "decline"
+              ]
+            },
+            "description": "Declines an incoming call connection request."
+          },
+          "response": []
+        },
+        {
+          "name": "Hang Up Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerUsername\": \"bob\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/call/hangup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "call",
+                "hangup"
+              ]
+            },
+            "description": "Disconnects an ongoing call signal."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Attachments (E2EE files)",
+      "item": [
+        {
+          "name": "Upload Encrypted File",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "description": "Raw AES-encrypted attachment binary payload",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attachments/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attachments",
+                "upload"
+              ]
+            },
+            "description": "Uploads a raw locally-encrypted binary payload. Returns a static download link."
+          },
+          "response": []
+        },
+        {
+          "name": "Download Encrypted File",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attachments/3f1ad270-ffff-4ffe-a0b4-0232db7b23d2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attachments",
+                "3f1ad270-ffff-4ffe-a0b4-0232db7b23d2"
+              ]
+            },
+            "description": "Streams the raw encrypted file payload back to the authenticated user."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5108",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
