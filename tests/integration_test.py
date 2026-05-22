@@ -257,7 +257,55 @@ def run_tests():
     assert res["data"]["remainingOneTimePrekeysCount"] == 0
     assert res["data"]["signedPrekeyId"] == 100
     
-    print("\n--- ALL E2EE & PRIVACY TESTS PASSED SUCCESSFULLY! ---")
+    # 18. Encrypted Media & File Attachment Relay (Blind Storage)
+    print("\n18. Testing Encrypted Media & File Attachment Relay (Blind Storage)...")
+    simulated_encrypted_data = b"SimulatedAES-GCMEncryptedAttachmentDataPayload"
+    
+    # helper for multipart upload
+    import uuid
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+    upload_url = f"{BASE_URL}/api/attachment/upload"
+    headers = {
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+        "Authorization": f"Bearer {alice_token}"
+    }
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="encrypted_payload.bin"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n"
+    ).encode("utf-8") + simulated_encrypted_data + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    
+    req = urllib.request.Request(upload_url, data=body, headers=headers, method="POST")
+    upload_status = 0
+    upload_res = None
+    try:
+        with urllib.request.urlopen(req) as response:
+            upload_status = response.status
+            upload_res = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        upload_status = e.code
+        upload_res = e.read().decode("utf-8")
+        
+    print(f"Upload Status: {upload_status}")
+    print(f"Upload Response: {upload_res}")
+    assert upload_status == 200
+    assert upload_res["isSuccess"] == True
+    attachment_url = upload_res["data"]
+    assert attachment_url.startswith("/attachments/")
+    
+    # Try downloading the uploaded blind storage file
+    print(f"Downloading uploaded attachment from: {BASE_URL}{attachment_url}")
+    download_req = urllib.request.Request(f"{BASE_URL}{attachment_url}", method="GET")
+    with urllib.request.urlopen(download_req) as response:
+        download_status = response.status
+        download_data = response.read()
+        
+    print(f"Download Status: {download_status}")
+    assert download_status == 200
+    assert download_data == simulated_encrypted_data
+    print("Attachment retrieval payload match verified!")
+    
+    print("\n--- ALL E2EE, PRIVACY, AND ATTACHMENT TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":
     run_tests()

@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddSingleton<IUserIdProvider, UsernameUserIdProvider>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IImageStorageService, LocalImageStorageService>();
+        services.AddScoped<IAttachmentStorageService, LocalAttachmentStorageService>();
         services.AddScoped<IChatNotificationService, ChatNotificationService>();
 
         return services;
