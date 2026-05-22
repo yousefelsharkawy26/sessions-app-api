@@ -13,4 +13,15 @@ public class ChatNotificationService(IHubContext<ChatHub> _hubContext) : IChatNo
         await _hubContext.Clients.User(receiverUsername)
             .SendAsync("ReceiveMessage", messageDto, cancellationToken);
     }
+
+    public async Task NotifyMessagesReadAsync(string receiverUsername, string readerUsername, List<Guid> messageIds, CancellationToken cancellationToken)
+    {
+        // Push the read receipt directly to the original sender (receiver of this notification)
+        await _hubContext.Clients.User(receiverUsername)
+            .SendAsync("MessagesRead", new 
+            { 
+                ReaderUsername = readerUsername, 
+                MessageIds = messageIds 
+            }, cancellationToken);
+    }
 }

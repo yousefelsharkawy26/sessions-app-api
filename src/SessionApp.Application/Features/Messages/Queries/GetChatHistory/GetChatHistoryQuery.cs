@@ -15,10 +15,12 @@ public record GetChatHistoryQuery : IRequest<BaseResponse<List<MessageDto>>>
 public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, BaseResponse<List<MessageDto>>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IChatNotificationService _notificationService;
 
-    public GetChatHistoryQueryHandler(IApplicationDbContext context)
+    public GetChatHistoryQueryHandler(IApplicationDbContext context, IChatNotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<BaseResponse<List<MessageDto>>> Handle(GetChatHistoryQuery request, CancellationToken cancellationToken)
@@ -63,11 +65,23 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
             }
             await _context.SaveChangesAsync(cancellationToken);
 
+            // Fetch requester username to include in read receipt notification
+            var requester = await _context.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
+            var requesterUsername = requester?.UserName ?? string.Empty;
+
             // Update in the returned list as well
             foreach (var dto in messages.Where(m => m.SenderId == otherUser.Id && m.ReadAt == null))
             {
                 dto.ReadAt = now;
             }
+
+            // Notify the sender in real-time that their messages were read
+            var messageIds = unreadIncomingMessages.Select(m => m.Id).ToList();
+            await _notificationService.NotifyMessagesReadAsync(
+                otherUser.UserName!, 
+                requesterUsername, 
+                messageIds, 
+                cancellationToken);
         }
 
         return BaseResponse<List<MessageDto>>.Success(messages);
