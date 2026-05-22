@@ -10,6 +10,7 @@ public record GetChatHistoryQuery : IRequest<BaseResponse<List<MessageDto>>>
 {
     public required string UserId { get; init; }
     public required string WithUsername { get; init; }
+    public string? DeviceId { get; init; }
 }
 
 public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, BaseResponse<List<MessageDto>>>
@@ -34,9 +35,11 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
         // Fetch tracking entities to allow modifications/deletions
         var allMessages = await _context.Messages
             .Where(m => (m.SenderId == request.UserId && m.ReceiverId == otherUser.Id) ||
-                        (m.SenderId == otherUser.Id && m.ReceiverId == request.UserId))
+                        (m.SenderId == otherUser.Id && m.ReceiverId == request.UserId && (m.RecipientDeviceId == request.DeviceId || m.RecipientDeviceId == null)))
             .Include(m => m.Sender)
             .Include(m => m.Receiver)
+            .Include(m => m.Reactions)
+                .ThenInclude(r => r.User)
             .ToListAsync(cancellationToken);
 
         var now = DateTime.UtcNow;
@@ -82,6 +85,16 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
                 cancellationToken);
         }
 
+        var chatMsgIds = allMessages.Select(m => m.Id).ToList();
+        var pinnedMessageIds = await _context.PinnedMessages
+            .Where(pm => chatMsgIds.Contains(pm.MessageId))
+            .Select(pm => pm.MessageId)
+            .ToListAsync(cancellationToken);
+
+        var mute = await _context.DirectChatMutes
+            .FirstOrDefaultAsync(m => m.MuterId == request.UserId && m.MutedUserId == otherUser.Id, cancellationToken);
+        var isCurrentlyMuted = mute != null && (mute.MutedUntil == null || mute.MutedUntil > DateTime.UtcNow);
+
         var dtos = allMessages
             .OrderBy(m => m.SentAt)
             .Select(m => new MessageDto
@@ -90,7 +103,9 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
                 SenderId = m.SenderId,
                 SenderUsername = m.Sender!.UserName!,
                 ReceiverId = m.ReceiverId,
-                ReceiverUsername = m.Receiver!.UserName!,
+                ReceiverUsername = m.Receiver != null ? m.Receiver.UserName! : null,
+                RecipientDeviceId = m.RecipientDeviceId,
+                GroupId = m.GroupId,
                 Ciphertext = m.Ciphertext,
                 EphemeralKey = m.EphemeralKey,
                 SignedPrekeyIdUsed = m.SignedPrekeyIdUsed,
@@ -100,7 +115,18 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
                 ReadAt = m.ReadAt,
                 BurnAfterSeconds = m.BurnAfterSeconds,
                 IsEdited = m.IsEdited,
-                EditedAt = m.EditedAt
+                EditedAt = m.EditedAt,
+                ParentMessageId = m.ParentMessageId,
+                IsPinned = pinnedMessageIds.Contains(m.Id),
+                IsAlertSilenced = isCurrentlyMuted && m.SenderId == otherUser.Id,
+                Reactions = m.Reactions.Select(r => new MessageReactionDto
+                {
+                    Id = r.Id,
+                    MessageId = r.MessageId,
+                    UserId = r.UserId,
+                    Username = r.User!.UserName!,
+                    ReactionCiphertext = r.ReactionCiphertext
+                }).ToList()
             })
             .ToList();
 

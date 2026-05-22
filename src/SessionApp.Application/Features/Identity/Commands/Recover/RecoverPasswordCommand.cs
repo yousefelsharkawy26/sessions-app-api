@@ -33,11 +33,43 @@ public class RecoverPasswordCommandHandler : IRequestHandler<RecoverPasswordComm
             return BaseResponse.Failure("User recovery is not available or invalid username.");
         }
 
+        // Check for lockout
+        if (user.RecoveryLockoutEnd.HasValue && user.RecoveryLockoutEnd.Value > System.DateTime.UtcNow)
+        {
+            var remainingTime = user.RecoveryLockoutEnd.Value - System.DateTime.UtcNow;
+            return BaseResponse.Failure($"Account recovery is locked out due to too many failed attempts. Try again in {System.Math.Ceiling(remainingTime.TotalMinutes)} minutes.");
+        }
+
         var isMnemonicValid = MnemonicHelper.VerifyMnemonic(request.Mnemonic, user.RecoveryPhraseHash);
         if (!isMnemonicValid)
         {
-            return BaseResponse.Failure("Invalid recovery mnemonic.");
+            user.FailedRecoveryAttempts++;
+            if (user.FailedRecoveryAttempts >= 5)
+            {
+                // Progressive backoff lockout duration: 5 attempts = 5 min, 6 attempts = 15 min, 7+ attempts = 60 min
+                int lockoutMinutes = user.FailedRecoveryAttempts switch
+                {
+                    5 => 5,
+                    6 => 15,
+                    _ => 60
+                };
+                user.RecoveryLockoutEnd = System.DateTime.UtcNow.AddMinutes(lockoutMinutes);
+            }
+
+            await _userManager.UpdateAsync(user);
+
+            if (user.FailedRecoveryAttempts >= 5)
+            {
+                return BaseResponse.Failure($"Invalid recovery mnemonic. Account recovery is now locked out for {user.FailedRecoveryAttempts switch { 5 => 5, 6 => 15, _ => 60 }} minutes.");
+            }
+
+            return BaseResponse.Failure($"Invalid recovery mnemonic. {5 - user.FailedRecoveryAttempts} attempts remaining before lockout.");
         }
+
+        // Reset lockout stats on successful verification
+        user.FailedRecoveryAttempts = 0;
+        user.RecoveryLockoutEnd = null;
+        await _userManager.UpdateAsync(user);
 
         // Generate a password reset token
         var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);

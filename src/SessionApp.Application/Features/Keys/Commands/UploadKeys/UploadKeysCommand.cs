@@ -10,6 +10,8 @@ namespace SessionApp.Application.Features.Keys.Commands.UploadKeys;
 public record UploadKeysCommand : IRequest<BaseResponse<bool>>
 {
     public required string UserId { get; init; }
+    public string? DeviceId { get; init; }
+    public string? DeviceName { get; init; }
     public required string IdentityKey { get; init; }
     public required string SignedPrekey { get; init; }
     public required string Signature { get; init; }
@@ -34,38 +36,74 @@ public class UploadKeysCommandHandler : IRequestHandler<UploadKeysCommand, BaseR
             return BaseResponse<bool>.Failure("User not found.");
         }
 
-        // 1. Create or Update PrekeyBundle
-        var bundle = await _context.PrekeyBundles
-            .FirstOrDefaultAsync(pb => pb.UserId == request.UserId, cancellationToken);
+        string deviceId = request.DeviceId ?? "primary";
+        string deviceName = request.DeviceName ?? "Primary Device";
 
-        if (bundle == null)
+        // 1. Create or Update UserDevice
+        var device = await _context.UserDevices
+            .FirstOrDefaultAsync(ud => ud.UserId == request.UserId && ud.DeviceId == deviceId, cancellationToken);
+
+        if (device == null)
         {
-            bundle = new PrekeyBundle
+            device = new UserDevice
             {
                 Id = Guid.NewGuid(),
                 UserId = request.UserId,
+                DeviceId = deviceId,
+                DeviceName = deviceName,
                 IdentityKey = request.IdentityKey,
                 SignedPrekey = request.SignedPrekey,
                 Signature = request.Signature,
                 SignedPrekeyId = request.SignedPrekeyId,
-                UpdatedAt = DateTime.UtcNow
+                LastSeenAt = DateTime.UtcNow
             };
-            _context.PrekeyBundles.Add(bundle);
+            _context.UserDevices.Add(device);
         }
         else
         {
-            bundle.IdentityKey = request.IdentityKey;
-            bundle.SignedPrekey = request.SignedPrekey;
-            bundle.Signature = request.Signature;
-            bundle.SignedPrekeyId = request.SignedPrekeyId;
-            bundle.UpdatedAt = DateTime.UtcNow;
+            device.DeviceName = deviceName;
+            device.IdentityKey = request.IdentityKey;
+            device.SignedPrekey = request.SignedPrekey;
+            device.Signature = request.Signature;
+            device.SignedPrekeyId = request.SignedPrekeyId;
+            device.LastSeenAt = DateTime.UtcNow;
         }
 
-        // 2. Add new One-Time Prekeys (skip duplicates)
+        // 2. Legacy PrekeyBundle Sync (for backward compatibility if primary)
+        if (deviceId == "primary")
+        {
+            var bundle = await _context.PrekeyBundles
+                .FirstOrDefaultAsync(pb => pb.UserId == request.UserId, cancellationToken);
+
+            if (bundle == null)
+            {
+                bundle = new PrekeyBundle
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = request.UserId,
+                    IdentityKey = request.IdentityKey,
+                    SignedPrekey = request.SignedPrekey,
+                    Signature = request.Signature,
+                    SignedPrekeyId = request.SignedPrekeyId,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.PrekeyBundles.Add(bundle);
+            }
+            else
+            {
+                bundle.IdentityKey = request.IdentityKey;
+                bundle.SignedPrekey = request.SignedPrekey;
+                bundle.Signature = request.Signature;
+                bundle.SignedPrekeyId = request.SignedPrekeyId;
+                bundle.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        // 3. Add new One-Time Prekeys for this device (skip duplicates)
         foreach (var otpDto in request.OneTimePrekeys)
         {
             var exists = await _context.OneTimePrekeys
-                .AnyAsync(otp => otp.UserId == request.UserId && otp.KeyId == otpDto.KeyId, cancellationToken);
+                .AnyAsync(otp => otp.UserId == request.UserId && otp.DeviceId == deviceId && otp.KeyId == otpDto.KeyId, cancellationToken);
 
             if (!exists)
             {
@@ -73,6 +111,7 @@ public class UploadKeysCommandHandler : IRequestHandler<UploadKeysCommand, BaseR
                 {
                     Id = Guid.NewGuid(),
                     UserId = request.UserId,
+                    DeviceId = deviceId,
                     KeyId = otpDto.KeyId,
                     KeyData = otpDto.KeyData
                 };

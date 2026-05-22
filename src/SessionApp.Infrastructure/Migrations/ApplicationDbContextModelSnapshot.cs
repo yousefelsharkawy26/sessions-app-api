@@ -182,8 +182,14 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("FailedRecoveryAttempts")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
@@ -215,6 +221,9 @@ namespace SessionApp.Infrastructure.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.Property<DateTime?>("RecoveryLockoutEnd")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("RecoveryPhraseHash")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -239,6 +248,60 @@ namespace SessionApp.Infrastructure.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.BlockedUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("BlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("BlockedId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BlockerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlockedId");
+
+                    b.HasIndex("BlockerId", "BlockedId")
+                        .IsUnique();
+
+                    b.ToTable("BlockedUsers");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.DirectChatMute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("MutedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MutedUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MuterId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MutedUserId");
+
+                    b.HasIndex("MuterId", "MutedUserId")
+                        .IsUnique();
+
+                    b.ToTable("DirectChatMutes");
                 });
 
             modelBuilder.Entity("SessionApp.Domain.Entities.Group", b =>
@@ -270,6 +333,12 @@ namespace SessionApp.Infrastructure.Migrations
 
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("MutedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
 
                     b.HasKey("GroupId", "UserId");
 
@@ -310,11 +379,18 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Property<int?>("OneTimePrekeyIdUsed")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ParentMessageId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ReceiverId")
                         .HasColumnType("text");
+
+                    b.Property<string>("RecipientDeviceId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("SenderId")
                         .IsRequired()
@@ -330,7 +406,11 @@ namespace SessionApp.Infrastructure.Migrations
 
                     b.HasIndex("GroupId");
 
+                    b.HasIndex("ParentMessageId");
+
                     b.HasIndex("ReceiverId");
+
+                    b.HasIndex("RecipientDeviceId");
 
                     b.HasIndex("SenderId");
 
@@ -339,11 +419,45 @@ namespace SessionApp.Infrastructure.Migrations
                     b.ToTable("Messages");
                 });
 
+            modelBuilder.Entity("SessionApp.Domain.Entities.MessageReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReactionCiphertext")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MessageId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("MessageReactions");
+                });
+
             modelBuilder.Entity("SessionApp.Domain.Entities.OneTimePrekey", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("KeyData")
                         .IsRequired()
@@ -361,10 +475,34 @@ namespace SessionApp.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "KeyId")
+                    b.HasIndex("UserId", "DeviceId", "KeyId")
                         .IsUnique();
 
                     b.ToTable("OneTimePrekeys");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.PinnedMessage", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PinnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PinnedById")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("PinnedById");
+
+                    b.ToTable("PinnedMessages");
                 });
 
             modelBuilder.Entity("SessionApp.Domain.Entities.PrekeyBundle", b =>
@@ -404,6 +542,57 @@ namespace SessionApp.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("PrekeyBundles");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.UserDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("IdentityKey")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Signature")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("SignedPrekey")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("SignedPrekeyId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "DeviceId")
+                        .IsUnique();
+
+                    b.ToTable("UserDevices");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -457,6 +646,44 @@ namespace SessionApp.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SessionApp.Domain.Entities.BlockedUser", b =>
+                {
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Blocked")
+                        .WithMany()
+                        .HasForeignKey("BlockedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Blocker")
+                        .WithMany()
+                        .HasForeignKey("BlockerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Blocked");
+
+                    b.Navigation("Blocker");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.DirectChatMute", b =>
+                {
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "MutedUser")
+                        .WithMany()
+                        .HasForeignKey("MutedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Muter")
+                        .WithMany()
+                        .HasForeignKey("MuterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MutedUser");
+
+                    b.Navigation("Muter");
+                });
+
             modelBuilder.Entity("SessionApp.Domain.Entities.GroupMember", b =>
                 {
                     b.HasOne("SessionApp.Domain.Entities.Group", "Group")
@@ -483,6 +710,11 @@ namespace SessionApp.Infrastructure.Migrations
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("SessionApp.Domain.Entities.Message", "ParentMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentMessageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Receiver")
                         .WithMany()
                         .HasForeignKey("ReceiverId")
@@ -496,9 +728,30 @@ namespace SessionApp.Infrastructure.Migrations
 
                     b.Navigation("Group");
 
+                    b.Navigation("ParentMessage");
+
                     b.Navigation("Receiver");
 
                     b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.MessageReaction", b =>
+                {
+                    b.HasOne("SessionApp.Domain.Entities.Message", "Message")
+                        .WithMany("Reactions")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SessionApp.Domain.Entities.OneTimePrekey", b =>
@@ -512,6 +765,33 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SessionApp.Domain.Entities.PinnedMessage", b =>
+                {
+                    b.HasOne("SessionApp.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionApp.Domain.Entities.Message", "Message")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "PinnedBy")
+                        .WithMany()
+                        .HasForeignKey("PinnedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+
+                    b.Navigation("Message");
+
+                    b.Navigation("PinnedBy");
+                });
+
             modelBuilder.Entity("SessionApp.Domain.Entities.PrekeyBundle", b =>
                 {
                     b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "User")
@@ -523,11 +803,29 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SessionApp.Domain.Entities.UserDevice", b =>
+                {
+                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SessionApp.Domain.Entities.Group", b =>
                 {
                     b.Navigation("Members");
 
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("SessionApp.Domain.Entities.Message", b =>
+                {
+                    b.Navigation("Reactions");
+
+                    b.Navigation("Replies");
                 });
 #pragma warning restore 612, 618
         }

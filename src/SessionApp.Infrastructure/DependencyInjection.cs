@@ -42,6 +42,8 @@ public static class DependencyInjection
         services.AddScoped<IChatNotificationService, ChatNotificationService>();
         services.AddScoped<IUserPresenceService, UserPresenceService>();
 
+        services.AddHostedService<AccountSelfDestructWorker>();
+
         return services;
     }
 }

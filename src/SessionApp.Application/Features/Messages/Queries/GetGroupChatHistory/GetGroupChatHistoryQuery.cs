@@ -38,16 +38,24 @@ public class GetGroupChatHistoryQueryHandler : IRequestHandler<GetGroupChatHisto
         }
 
         // Verify user is a member of the group
-        var isMember = group.Members.Any(m => m.UserId == request.UserId);
-        if (!isMember)
+        var membership = group.Members.FirstOrDefault(m => m.UserId == request.UserId);
+        if (membership == null)
         {
             return BaseResponse<List<MessageDto>>.Failure("You must be a member of the group to retrieve chat history.");
         }
+        var isGroupMuted = membership.MutedUntil.HasValue && membership.MutedUntil.Value > DateTime.UtcNow;
 
         var messages = await _context.Messages
             .Where(m => m.GroupId == request.GroupId)
             .Include(m => m.Sender)
+            .Include(m => m.Reactions)
+                .ThenInclude(r => r.User)
             .OrderBy(m => m.SentAt)
+            .ToListAsync(cancellationToken);
+
+        var pinnedMessageIds = await _context.PinnedMessages
+            .Where(pm => pm.GroupId == request.GroupId)
+            .Select(pm => pm.MessageId)
             .ToListAsync(cancellationToken);
 
         var dtos = messages.Select(m => new MessageDto
@@ -67,7 +75,18 @@ public class GetGroupChatHistoryQueryHandler : IRequestHandler<GetGroupChatHisto
             ReadAt = m.ReadAt,
             BurnAfterSeconds = m.BurnAfterSeconds,
             IsEdited = m.IsEdited,
-            EditedAt = m.EditedAt
+            EditedAt = m.EditedAt,
+            ParentMessageId = m.ParentMessageId,
+            IsPinned = pinnedMessageIds.Contains(m.Id),
+            IsAlertSilenced = isGroupMuted,
+            Reactions = m.Reactions.Select(r => new MessageReactionDto
+            {
+                Id = r.Id,
+                MessageId = r.MessageId,
+                UserId = r.UserId,
+                Username = r.User!.UserName!,
+                ReactionCiphertext = r.ReactionCiphertext
+            }).ToList()
         }).ToList();
 
         return BaseResponse<List<MessageDto>>.Success(dtos, "Group chat history retrieved successfully.");

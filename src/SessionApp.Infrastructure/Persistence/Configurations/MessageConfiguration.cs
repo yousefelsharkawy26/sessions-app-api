@@ -25,6 +25,8 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(m => m.DeliveredAt);
         builder.Property(m => m.IsEdited);
         builder.Property(m => m.EditedAt);
+        builder.Property(m => m.RecipientDeviceId)
+            .HasMaxLength(50);
 
         builder.HasOne(m => m.Sender)
             .WithMany()
@@ -41,9 +43,16 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasForeignKey(m => m.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(m => m.ParentMessage)
+            .WithMany(m => m.Replies)
+            .HasForeignKey(m => m.ParentMessageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(m => m.SenderId);
         builder.HasIndex(m => m.ReceiverId);
         builder.HasIndex(m => m.GroupId);
         builder.HasIndex(m => m.SentAt);
+        builder.HasIndex(m => m.RecipientDeviceId);
+        builder.HasIndex(m => m.ParentMessageId);
     }
 }

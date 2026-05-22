@@ -55,6 +55,16 @@ public class AddGroupMemberCommandHandler : IRequestHandler<AddGroupMemberComman
             return BaseResponse<bool>.Failure("User to add not found.");
         }
 
+        // Blocklist Validation
+        var isBlocked = await _context.BlockedUsers
+            .AnyAsync(bu => (bu.BlockerId == userToAdd.Id && bu.BlockedId == request.RequestingUserId) || 
+                            (bu.BlockerId == request.RequestingUserId && bu.BlockedId == userToAdd.Id), cancellationToken);
+
+        if (isBlocked)
+        {
+            return BaseResponse<bool>.Failure("You cannot add this user to the group because one of you has blocked the other.");
+        }
+
         // Check if already a member
         var alreadyMember = await _context.GroupMembers
             .AnyAsync(gm => gm.GroupId == request.GroupId && gm.UserId == userToAdd.Id, cancellationToken);

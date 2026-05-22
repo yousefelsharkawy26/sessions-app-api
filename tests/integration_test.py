@@ -637,7 +637,121 @@ def run_tests():
     assert res["isSuccess"] == False
     print("Bob's ability to post messages to the group was successfully revoked.")
     
-    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, DELETION, EDITING, AND GROUP TESTS PASSED SUCCESSFULLY! ---")
+    # 24. Testing Blocklist / Privacy Shield (Phase 1)
+    print("\n24. Testing Blocklist / Privacy Shield (User Blocklist System)...")
+    
+    # Alice blocks Bob
+    print(f"Alice blocks Bob...")
+    status, res = make_request(f"/api/block/{BOB}", "POST", token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert res["isSuccess"] == True
+    
+    # Alice retrieves blocked users list (should contain Bob)
+    print("Alice gets her blocked users list...")
+    status, res = make_request("/api/block", "GET", token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert res["isSuccess"] == True
+    blocked_usernames = [u["username"] for u in res["data"]]
+    assert BOB in blocked_usernames
+    print("Bob found in Alice's blocked list.")
+    
+    # Bob tries to view Alice's profile (Should fail, return 400 User not found for privacy)
+    print("Bob tries to get Alice's profile (expected failure)...")
+    status, res = make_request(f"/api/profile/{ALICE}", "GET", token=bob_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert any("not found" in err.lower() for err in res["errors"])
+    
+    # Bob tries to fetch Alice's prekey bundle (Should fail)
+    print("Bob tries to fetch Alice's prekey bundle (expected failure)...")
+    status, res = make_request(f"/api/keys/bundle/{ALICE}", "GET", token=bob_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert any("blocked" in err.lower() for err in res["errors"])
+    
+    # Bob tries to send Alice a message (Should fail)
+    print("Bob tries to send Alice a message (expected failure)...")
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": "blocked_bob_ciphertext",
+        "ephemeralKey": "bob_blocked_key",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": None
+    }, token=bob_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert any("blocked" in err.lower() for err in res["errors"])
+    
+    # Alice tries to send Bob a message (Should fail since block is active in either direction)
+    print("Alice tries to send Bob a message while blocked (expected failure)...")
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": BOB,
+        "ciphertext": "blocked_alice_ciphertext",
+        "ephemeralKey": "alice_blocked_key",
+        "signedPrekeyIdUsed": 200,
+        "oneTimePrekeyIdUsed": None
+    }, token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert any("blocked" in err.lower() for err in res["errors"])
+
+    # Alice searches for Bob (Should not find him)
+    print("Alice searches for Bob (expected empty result)...")
+    status, res = make_request(f"/api/profile/search?searchTerm={BOB}", "GET", token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert len(res["data"]) == 0
+    
+    # Bob searches for Alice (Should not find her)
+    print("Bob searches for Alice (expected empty result)...")
+    status, res = make_request(f"/api/profile/search?searchTerm={ALICE}", "GET", token=bob_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert len(res["data"]) == 0
+    
+    # Alice tries to add Bob to a new group (Should exclude or fail)
+    print("Alice creates a group trying to include Bob...")
+    status, res = make_request("/api/group", "POST", {
+        "name": "Should Exclude Bob",
+        "memberUsernames": [BOB, CHARLIE]
+    }, token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    group_members = [m["username"] for m in res["data"]["members"]]
+    assert BOB not in group_members
+    assert CHARLIE in group_members
+    print("Verified Bob was excluded from the created group.")
+
+    # Alice unblocks Bob
+    print("Alice unblocks Bob...")
+    status, res = make_request(f"/api/block/{BOB}", "DELETE", token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert res["isSuccess"] == True
+    
+    # Alice gets her blocked list (should be empty now)
+    print("Alice gets her blocked list again...")
+    status, res = make_request("/api/block", "GET", token=alice_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    assert len(res["data"]) == 0
+    
+    # Bob searches for Alice again (Should find her now)
+    print("Bob searches for Alice after being unblocked...")
+    status, res = make_request(f"/api/profile/search?searchTerm={ALICE}", "GET", token=bob_token)
+    print(f"Status: {status}, Response: {res}")
+    assert status == 200
+    found_usernames = [u["username"] for u in res["data"]]
+    assert ALICE in found_usernames
+    print("Unblocked successfully and verified all constraints reset!")
+    
+    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, DELETION, EDITING, GROUP, AND BLOCKLIST TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":
     run_tests()

@@ -31,6 +31,16 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, B
 
         var isOwner = targetUser.Id == request.RequesterId;
 
+        // Blocklist Validation
+        var isBlocked = await _context.BlockedUsers
+            .AnyAsync(bu => (bu.BlockerId == targetUser.Id && bu.BlockedId == request.RequesterId) || 
+                            (bu.BlockerId == request.RequesterId && bu.BlockedId == targetUser.Id), cancellationToken);
+
+        if (isBlocked && !isOwner)
+        {
+            return BaseResponse<UserProfileDto>.Failure("User not found.");
+        }
+
         // Privacy filter
         if (targetUser.IsPrivate && !isOwner)
         {

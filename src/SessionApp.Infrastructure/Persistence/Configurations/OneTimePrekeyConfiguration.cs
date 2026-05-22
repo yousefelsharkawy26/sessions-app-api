@@ -17,12 +17,16 @@ public class OneTimePrekeyConfiguration : IEntityTypeConfiguration<OneTimePrekey
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(otp => otp.DeviceId)
+            .IsRequired()
+            .HasMaxLength(50);
+
         builder.HasOne(otp => otp.User)
             .WithMany() // A user can have multiple one-time prekeys
             .HasForeignKey(otp => otp.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(otp => otp.UserId);
-        builder.HasIndex(otp => new { otp.UserId, otp.KeyId }).IsUnique();
+        builder.HasIndex(otp => new { otp.UserId, otp.DeviceId, otp.KeyId }).IsUnique();
     }
 }

@@ -93,4 +93,28 @@ public class ChatHub : Hub
     {
         return OnlineUsers.TryGetValue(username, out var connectionId) ? connectionId : null;
     }
+
+    public async Task SendTypingIndicator(string targetUsername, bool isTyping)
+    {
+        var senderUsername = Context.User?.Identity?.Name;
+        if (!string.IsNullOrEmpty(senderUsername) && !string.IsNullOrEmpty(targetUsername))
+        {
+            await Clients.User(targetUsername).SendAsync("TypingIndicatorReceived", senderUsername, isTyping);
+        }
+    }
+
+    public async Task SendGroupTypingIndicator(Guid groupId, bool isTyping)
+    {
+        var senderUsername = Context.User?.Identity?.Name;
+        if (!string.IsNullOrEmpty(senderUsername))
+        {
+            var isMember = await _context.GroupMembers
+                .AnyAsync(gm => gm.GroupId == groupId && gm.User!.UserName == senderUsername);
+
+            if (isMember)
+            {
+                await Clients.OthersInGroup($"Group_{groupId}").SendAsync("GroupTypingIndicatorReceived", groupId, senderUsername, isTyping);
+            }
+        }
+    }
 }

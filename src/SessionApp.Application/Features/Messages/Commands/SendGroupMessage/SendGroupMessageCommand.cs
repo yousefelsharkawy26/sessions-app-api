@@ -16,6 +16,7 @@ public record SendGroupMessageCommand : IRequest<BaseResponse<MessageDto>>
     public Guid GroupId { get; init; }
     public required string Ciphertext { get; init; }
     public string? EphemeralKey { get; init; }
+    public Guid? ParentMessageId { get; init; }
 }
 
 public class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMessageCommand, BaseResponse<MessageDto>>
@@ -55,6 +56,16 @@ public class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMessageCo
             return BaseResponse<MessageDto>.Failure("You are not a member of this group.");
         }
 
+        // Validate parent message if provided
+        if (request.ParentMessageId.HasValue)
+        {
+            var parentExists = await _context.Messages.AnyAsync(m => m.Id == request.ParentMessageId.Value, cancellationToken);
+            if (!parentExists)
+            {
+                return BaseResponse<MessageDto>.Failure("Parent message for quote/reply not found.");
+            }
+        }
+
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -64,7 +75,8 @@ public class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMessageCo
             Group = group,
             Ciphertext = request.Ciphertext,
             EphemeralKey = request.EphemeralKey,
-            SentAt = DateTime.UtcNow
+            SentAt = DateTime.UtcNow,
+            ParentMessageId = request.ParentMessageId
         };
 
         _context.Messages.Add(message);
@@ -87,7 +99,8 @@ public class SendGroupMessageCommandHandler : IRequestHandler<SendGroupMessageCo
             ReadAt = message.ReadAt,
             BurnAfterSeconds = message.BurnAfterSeconds,
             IsEdited = message.IsEdited,
-            EditedAt = message.EditedAt
+            EditedAt = message.EditedAt,
+            ParentMessageId = message.ParentMessageId
         };
 
         // Notify group members in real-time

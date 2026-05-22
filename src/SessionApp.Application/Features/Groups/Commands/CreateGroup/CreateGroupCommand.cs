@@ -51,6 +51,7 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Bas
             GroupId = group.Id,
             UserId = creator.Id,
             User = creator,
+            Role = SessionApp.Domain.Enums.GroupRole.Owner,
             JoinedAt = DateTime.UtcNow
         });
 
@@ -58,8 +59,13 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Bas
         if (request.MemberUsernames != null && request.MemberUsernames.Any())
         {
             var usernames = request.MemberUsernames.Distinct().Where(u => u != creator.UserName).ToList();
+            var blockedUserIds = await _context.BlockedUsers
+                .Where(bu => bu.BlockerId == creator.Id || bu.BlockedId == creator.Id)
+                .Select(bu => bu.BlockerId == creator.Id ? bu.BlockedId : bu.BlockerId)
+                .ToListAsync(cancellationToken);
+
             var usersToAdd = await _context.Users
-                .Where(u => usernames.Contains(u.UserName!))
+                .Where(u => usernames.Contains(u.UserName!) && !blockedUserIds.Contains(u.Id))
                 .ToListAsync(cancellationToken);
 
             foreach (var user in usersToAdd)
@@ -69,6 +75,7 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Bas
                     GroupId = group.Id,
                     UserId = user.Id,
                     User = user,
+                    Role = SessionApp.Domain.Enums.GroupRole.Member,
                     JoinedAt = DateTime.UtcNow
                 });
             }
@@ -86,6 +93,7 @@ public class CreateGroupCommandHandler : IRequestHandler<CreateGroupCommand, Bas
             {
                 UserId = m.UserId,
                 Username = m.User?.UserName ?? string.Empty,
+                Role = m.Role.ToString(),
                 JoinedAt = m.JoinedAt
             }).ToList()
         };

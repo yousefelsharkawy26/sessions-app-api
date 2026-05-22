@@ -9,6 +9,7 @@ namespace SessionApp.Application.Features.Profiles.Queries.SearchUser;
 public record SearchUserQuery : IRequest<BaseResponse<List<UserProfileDto>>>
 {
     public required string SearchTerm { get; init; }
+    public string? RequesterId { get; init; }
 }
 
 public class SearchUserQueryHandler : IRequestHandler<SearchUserQuery, BaseResponse<List<UserProfileDto>>>
@@ -29,8 +30,18 @@ public class SearchUserQueryHandler : IRequestHandler<SearchUserQuery, BaseRespo
 
         var searchTermLower = request.SearchTerm.ToLower();
 
+        List<string> blockedUserIds = new();
+        if (!string.IsNullOrEmpty(request.RequesterId))
+        {
+            blockedUserIds = await _context.BlockedUsers
+                .Where(bu => bu.BlockerId == request.RequesterId || bu.BlockedId == request.RequesterId)
+                .Select(bu => bu.BlockerId == request.RequesterId ? bu.BlockedId : bu.BlockerId)
+                .ToListAsync(cancellationToken);
+        }
+
         var users = await _context.Users
             .Where(u => !u.IsPrivate && 
+                        !blockedUserIds.Contains(u.Id) &&
                         (u.UserName!.ToLower().Contains(searchTermLower) || 
                          u.DisplayName.ToLower().Contains(searchTermLower)))
             .Select(u => new UserProfileDto

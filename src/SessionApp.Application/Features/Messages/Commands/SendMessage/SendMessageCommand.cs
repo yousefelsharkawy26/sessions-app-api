@@ -11,11 +11,13 @@ public record SendMessageCommand : IRequest<BaseResponse<MessageDto>>
 {
     public required string SenderId { get; init; }
     public required string ReceiverUsername { get; init; }
+    public string? RecipientDeviceId { get; init; } // Optional target device ID
     public required string Ciphertext { get; init; }
     public required string EphemeralKey { get; init; }
     public int SignedPrekeyIdUsed { get; init; }
     public int? OneTimePrekeyIdUsed { get; init; }
     public int? BurnAfterSeconds { get; init; }
+    public Guid? ParentMessageId { get; init; }
 }
 
 public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, BaseResponse<MessageDto>>
@@ -43,6 +45,16 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
         if (receiver == null)
         {
             return BaseResponse<MessageDto>.Failure("Receiver user not found.");
+        }
+
+        // Blocklist Validation
+        var isBlocked = await _context.BlockedUsers
+            .AnyAsync(bu => (bu.BlockerId == receiver.Id && bu.BlockedId == sender.Id) || 
+                            (bu.BlockerId == sender.Id && bu.BlockedId == receiver.Id), cancellationToken);
+
+        if (isBlocked)
+        {
+            return BaseResponse<MessageDto>.Failure("You cannot send messages to this user because one of you has blocked the other.");
         }
 
         // Privacy Validation
@@ -80,6 +92,16 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             calculatedBurnAfterSeconds = baseBurnSeconds + extraSeconds;
         }
 
+        // Validate parent message if provided
+        if (request.ParentMessageId.HasValue)
+        {
+            var parentExists = await _context.Messages.AnyAsync(m => m.Id == request.ParentMessageId.Value, cancellationToken);
+            if (!parentExists)
+            {
+                return BaseResponse<MessageDto>.Failure("Parent message for quote/reply not found.");
+            }
+        }
+
         var isOnline = _presenceService.IsUserOnline(receiver.UserName!);
         var message = new Message
         {
@@ -88,13 +110,15 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             Sender = sender,
             ReceiverId = receiver.Id,
             Receiver = receiver,
+            RecipientDeviceId = request.RecipientDeviceId,
             Ciphertext = request.Ciphertext,
             EphemeralKey = request.EphemeralKey,
             SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
             SentAt = DateTime.UtcNow,
             DeliveredAt = isOnline ? DateTime.UtcNow : null,
-            BurnAfterSeconds = calculatedBurnAfterSeconds
+            BurnAfterSeconds = calculatedBurnAfterSeconds,
+            ParentMessageId = request.ParentMessageId
         };
 
         _context.Messages.Add(message);
@@ -107,6 +131,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SenderUsername = sender.UserName!,
             ReceiverId = message.ReceiverId,
             ReceiverUsername = receiver.UserName!,
+            RecipientDeviceId = message.RecipientDeviceId,
             Ciphertext = message.Ciphertext,
             EphemeralKey = message.EphemeralKey,
             SignedPrekeyIdUsed = message.SignedPrekeyIdUsed,
@@ -114,7 +139,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SentAt = message.SentAt,
             DeliveredAt = message.DeliveredAt,
             ReadAt = message.ReadAt,
-            BurnAfterSeconds = message.BurnAfterSeconds
+            BurnAfterSeconds = message.BurnAfterSeconds,
+            ParentMessageId = message.ParentMessageId
         };
 
         // Fire real-time notification

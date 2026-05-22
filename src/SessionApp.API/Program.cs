@@ -139,6 +139,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
+app.UseMiddleware<SessionApp.API.Middleware.UserActivityMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

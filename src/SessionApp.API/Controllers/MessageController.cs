@@ -7,8 +7,12 @@ using SessionApp.Application.Features.Messages.Commands.DeleteMessage;
 using SessionApp.Application.Features.Messages.Commands.EditMessage;
 using SessionApp.Application.Features.Messages.Commands.SendGroupMessage;
 using SessionApp.Application.Features.Messages.Commands.DeliverMessages;
+using SessionApp.Application.Features.Messages.Commands.ReactToMessage;
 using SessionApp.Application.Features.Messages.Queries.GetChatHistory;
 using SessionApp.Application.Features.Messages.Queries.GetGroupChatHistory;
+using SessionApp.Application.Features.Groups.Commands.PinMessage;
+using SessionApp.Application.Features.Groups.Commands.UnpinMessage;
+using SessionApp.Application.Features.Groups.Queries.GetPinnedMessages;
 
 namespace SessionApp.API.Controllers;
 
@@ -22,11 +26,13 @@ public class MessageController : ApiControllerBase
         {
             SenderId = CurrentUserId!,
             ReceiverUsername = request.ReceiverUsername,
+            RecipientDeviceId = request.RecipientDeviceId,
             Ciphertext = request.Ciphertext,
             EphemeralKey = request.EphemeralKey,
             SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
-            BurnAfterSeconds = request.BurnAfterSeconds
+            BurnAfterSeconds = request.BurnAfterSeconds,
+            ParentMessageId = request.ParentMessageId
         });
 
         if (!result.IsSuccess)
@@ -37,12 +43,13 @@ public class MessageController : ApiControllerBase
     }
 
     [HttpGet("chat/{username}")]
-    public async Task<ActionResult<BaseResponse<List<MessageDto>>>> GetChatHistory(string username)
+    public async Task<ActionResult<BaseResponse<List<MessageDto>>>> GetChatHistory(string username, [FromQuery] string? deviceId)
     {
         var result = await Mediator.Send(new GetChatHistoryQuery
         {
             UserId = CurrentUserId!,
-            WithUsername = username
+            WithUsername = username,
+            DeviceId = deviceId
         });
 
         if (!result.IsSuccess)
@@ -94,7 +101,8 @@ public class MessageController : ApiControllerBase
             SenderId = CurrentUserId!,
             GroupId = request.GroupId,
             Ciphertext = request.Ciphertext,
-            EphemeralKey = request.EphemeralKey
+            EphemeralKey = request.EphemeralKey,
+            ParentMessageId = request.ParentMessageId
         });
 
         if (!result.IsSuccess)
@@ -135,6 +143,72 @@ public class MessageController : ApiControllerBase
         }
         return Ok(result);
     }
+
+    [HttpPost("react")]
+    public async Task<ActionResult<BaseResponse<bool>>> ReactToMessage([FromBody] ReactToMessageRequest request)
+    {
+        var result = await Mediator.Send(new ReactToMessageCommand
+        {
+            MessageId = request.MessageId,
+            UserId = CurrentUserId!,
+            ReactionCiphertext = request.ReactionCiphertext
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("{id}/pin")]
+    public async Task<ActionResult<BaseResponse<bool>>> PinMessage(Guid id)
+    {
+        var result = await Mediator.Send(new PinMessageCommand
+        {
+            MessageId = id,
+            RequestingUserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpDelete("{id}/pin")]
+    public async Task<ActionResult<BaseResponse<bool>>> UnpinMessage(Guid id)
+    {
+        var result = await Mediator.Send(new UnpinMessageCommand
+        {
+            MessageId = id,
+            RequestingUserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("pinned")]
+    public async Task<ActionResult<BaseResponse<List<MessageDto>>>> GetPinnedMessages([FromQuery] Guid? groupId, [FromQuery] string? withUsername)
+    {
+        var result = await Mediator.Send(new GetPinnedMessagesQuery
+        {
+            GroupId = groupId,
+            WithUsername = withUsername,
+            RequestingUserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
 }
 
 public record DeliverMessagesRequest
@@ -145,11 +219,13 @@ public record DeliverMessagesRequest
 public record SendMessageRequest
 {
     public required string ReceiverUsername { get; init; }
+    public string? RecipientDeviceId { get; init; }
     public required string Ciphertext { get; init; }
     public required string EphemeralKey { get; init; }
     public int SignedPrekeyIdUsed { get; init; }
     public int? OneTimePrekeyIdUsed { get; init; }
     public int? BurnAfterSeconds { get; init; }
+    public Guid? ParentMessageId { get; init; }
 }
 
 public record EditMessageRequest
@@ -163,4 +239,11 @@ public record SendGroupMessageRequest
     public required Guid GroupId { get; init; }
     public required string Ciphertext { get; init; }
     public string? EphemeralKey { get; init; }
+    public Guid? ParentMessageId { get; init; }
+}
+
+public record ReactToMessageRequest
+{
+    public required Guid MessageId { get; init; }
+    public string? ReactionCiphertext { get; init; }
 }

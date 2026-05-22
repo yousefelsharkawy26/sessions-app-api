@@ -18,6 +18,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public DbSet<OneTimePrekey> OneTimePrekeys => Set<OneTimePrekey>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
+    public DbSet<BlockedUser> BlockedUsers => Set<BlockedUser>();
+    public DbSet<UserDevice> UserDevices => Set<UserDevice>();
+    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+    public DbSet<PinnedMessage> PinnedMessages => Set<PinnedMessage>();
+    public DbSet<DirectChatMute> DirectChatMutes => Set<DirectChatMute>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

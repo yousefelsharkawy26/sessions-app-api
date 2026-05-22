@@ -6,6 +6,8 @@ using SessionApp.Application.Features.Groups.Commands.AddGroupMember;
 using SessionApp.Application.Features.Groups.Commands.CreateGroup;
 using SessionApp.Application.Features.Groups.Commands.RemoveGroupMember;
 using SessionApp.Application.Features.Groups.Queries.GetGroupPrekeys;
+using SessionApp.Application.Features.Groups.Commands.UpdateGroupMemberRole;
+using SessionApp.Application.Features.Groups.Commands.UpdateGroupMetadata;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -81,6 +83,52 @@ public class GroupController : ApiControllerBase
         }
         return Ok(result);
     }
+
+    [HttpPut("{id}/role")]
+    public async Task<ActionResult<BaseResponse<bool>>> UpdateMemberRole(Guid id, [FromBody] UpdateGroupMemberRoleRequest request)
+    {
+        var result = await Mediator.Send(new UpdateGroupMemberRoleCommand
+        {
+            GroupId = id,
+            Username = request.Username,
+            NewRole = request.NewRole,
+            RequestingUserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpPut("{id}/metadata")]
+    public async Task<ActionResult<BaseResponse<bool>>> UpdateMetadata(Guid id, [FromBody] UpdateGroupMetadataRequest request)
+    {
+        var result = await Mediator.Send(new UpdateGroupMetadataCommand
+        {
+            GroupId = id,
+            NewName = request.NewName,
+            RequestingUserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+}
+
+public record UpdateGroupMemberRoleRequest
+{
+    public required string Username { get; init; }
+    public required string NewRole { get; init; }
+}
+
+public record UpdateGroupMetadataRequest
+{
+    public required string NewName { get; init; }
 }
 
 public record CreateGroupRequest

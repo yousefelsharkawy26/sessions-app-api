@@ -19,6 +19,7 @@ public record UpdateProfileCommand : IRequest<BaseResponse<UserProfileDto>>
     public string? Metadata { get; init; }
     public string? ProfilePictureBase64 { get; init; }
     public string? ProfilePictureFileName { get; init; }
+    public DateTime? LastSeenAt { get; init; }
 }
 
 public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand, BaseResponse<UserProfileDto>>
@@ -58,6 +59,11 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         if (request.Metadata != null)
         {
             user.Metadata = request.Metadata;
+        }
+
+        if (request.LastSeenAt.HasValue)
+        {
+            user.LastSeenAt = request.LastSeenAt.Value;
         }
 
         if (!string.IsNullOrEmpty(request.ProfilePictureBase64) && !string.IsNullOrEmpty(request.ProfilePictureFileName))

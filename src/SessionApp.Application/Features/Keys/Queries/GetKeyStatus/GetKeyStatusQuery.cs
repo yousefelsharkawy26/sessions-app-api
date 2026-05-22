@@ -8,6 +8,7 @@ namespace SessionApp.Application.Features.Keys.Queries.GetKeyStatus;
 public record GetKeyStatusQuery : IRequest<BaseResponse<KeyStatusDto>>
 {
     public required string UserId { get; init; }
+    public string? DeviceId { get; init; }
 }
 
 public class GetKeyStatusQueryHandler : IRequestHandler<GetKeyStatusQuery, BaseResponse<KeyStatusDto>>
@@ -21,10 +22,11 @@ public class GetKeyStatusQueryHandler : IRequestHandler<GetKeyStatusQuery, BaseR
 
     public async Task<BaseResponse<KeyStatusDto>> Handle(GetKeyStatusQuery request, CancellationToken cancellationToken)
     {
-        var bundle = await _context.PrekeyBundles
-            .FirstOrDefaultAsync(b => b.UserId == request.UserId, cancellationToken);
+        string deviceId = request.DeviceId ?? "primary";
+        var device = await _context.UserDevices
+            .FirstOrDefaultAsync(ud => ud.UserId == request.UserId && ud.DeviceId == deviceId, cancellationToken);
 
-        if (bundle == null)
+        if (device == null)
         {
             return BaseResponse<KeyStatusDto>.Success(new KeyStatusDto
             {
@@ -36,14 +38,14 @@ public class GetKeyStatusQueryHandler : IRequestHandler<GetKeyStatusQuery, BaseR
         }
 
         var otpCount = await _context.OneTimePrekeys
-            .CountAsync(o => o.UserId == request.UserId, cancellationToken);
+            .CountAsync(o => o.UserId == request.UserId && o.DeviceId == deviceId, cancellationToken);
 
         return BaseResponse<KeyStatusDto>.Success(new KeyStatusDto
         {
             IsUploaded = true,
             RemainingOneTimePrekeysCount = otpCount,
-            SignedPrekeyId = bundle.SignedPrekeyId,
-            LastUpdatedAt = bundle.UpdatedAt
+            SignedPrekeyId = device.SignedPrekeyId,
+            LastUpdatedAt = device.LastSeenAt
         }, "Key status retrieved successfully.");
     }
 }

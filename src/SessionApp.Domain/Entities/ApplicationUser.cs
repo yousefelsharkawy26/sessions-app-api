@@ -12,4 +12,11 @@ public class ApplicationUser : IdentityUser
     
     // Recovery Phrase Hash for "Session-style" password recovery
     public string? RecoveryPhraseHash { get; set; }
+
+    // Last seen timestamp for automatic account self-destruct / inactivity tracking
+    public DateTime? LastSeenAt { get; set; }
+
+    // Recovery lockout properties to protect against mnemonic brute-forcing
+    public int FailedRecoveryAttempts { get; set; }
+    public DateTime? RecoveryLockoutEnd { get; set; }
 }

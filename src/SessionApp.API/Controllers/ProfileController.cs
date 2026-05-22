@@ -47,6 +47,11 @@ public class ProfileController : ApiControllerBase
     [HttpPut("update")]
     public async Task<ActionResult<BaseResponse<UserProfileDto>>> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
+        if (request.LastSeenAt.HasValue)
+        {
+            HttpContext.Items["BypassUserActivity"] = true;
+        }
+
         var result = await Mediator.Send(new UpdateProfileCommand
         {
             UserId = CurrentUserId!,
@@ -55,7 +60,8 @@ public class ProfileController : ApiControllerBase
             IsPrivate = request.IsPrivate,
             Metadata = request.Metadata,
             ProfilePictureBase64 = request.ProfilePictureBase64,
-            ProfilePictureFileName = request.ProfilePictureFileName
+            ProfilePictureFileName = request.ProfilePictureFileName,
+            LastSeenAt = request.LastSeenAt
         });
 
         if (!result.IsSuccess)
@@ -68,7 +74,11 @@ public class ProfileController : ApiControllerBase
     [HttpGet("search")]
     public async Task<ActionResult<BaseResponse<List<UserProfileDto>>>> SearchUser([FromQuery] string searchTerm)
     {
-        var result = await Mediator.Send(new SearchUserQuery { SearchTerm = searchTerm });
+        var result = await Mediator.Send(new SearchUserQuery 
+        { 
+            SearchTerm = searchTerm,
+            RequesterId = CurrentUserId!
+        });
         if (!result.IsSuccess)
         {
             return BadRequest(result);
@@ -96,4 +106,5 @@ public record UpdateProfileRequest
     public string? Metadata { get; init; }
     public string? ProfilePictureBase64 { get; init; }
     public string? ProfilePictureFileName { get; init; }
+    public DateTime? LastSeenAt { get; init; }
 }

@@ -13,5 +13,10 @@ public interface IApplicationDbContext
     DbSet<OneTimePrekey> OneTimePrekeys { get; }
     DbSet<Group> Groups { get; }
     DbSet<GroupMember> GroupMembers { get; }
+    DbSet<BlockedUser> BlockedUsers { get; }
+    DbSet<UserDevice> UserDevices { get; }
+    DbSet<MessageReaction> MessageReactions { get; }
+    DbSet<PinnedMessage> PinnedMessages { get; }
+    DbSet<DirectChatMute> DirectChatMutes { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -18,6 +18,8 @@ public class KeysController : ApiControllerBase
         var result = await Mediator.Send(new UploadKeysCommand
         {
             UserId = CurrentUserId!,
+            DeviceId = request.DeviceId,
+            DeviceName = request.DeviceName,
             IdentityKey = request.IdentityKey,
             SignedPrekey = request.SignedPrekey,
             Signature = request.Signature,
@@ -49,11 +51,12 @@ public class KeysController : ApiControllerBase
     }
 
     [HttpGet("status")]
-    public async Task<ActionResult<BaseResponse<KeyStatusDto>>> GetKeyStatus()
+    public async Task<ActionResult<BaseResponse<KeyStatusDto>>> GetKeyStatus([FromQuery] string? deviceId)
     {
         var result = await Mediator.Send(new GetKeyStatusQuery
         {
-            UserId = CurrentUserId!
+            UserId = CurrentUserId!,
+            DeviceId = deviceId
         });
 
         if (!result.IsSuccess)
@@ -66,6 +69,8 @@ public class KeysController : ApiControllerBase
 
 public record UploadKeysRequest
 {
+    public string? DeviceId { get; init; }
+    public string? DeviceName { get; init; }
     public required string IdentityKey { get; init; }
     public required string SignedPrekey { get; init; }
     public required string Signature { get; init; }
