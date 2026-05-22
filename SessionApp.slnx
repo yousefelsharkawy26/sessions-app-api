@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SessionApp.API/SessionApp.API.csproj" />
+    <Project Path="src/SessionApp.Application/SessionApp.Application.csproj" />
+    <Project Path="src/SessionApp.Domain/SessionApp.Domain.csproj" />
+    <Project Path="src/SessionApp.Infrastructure/SessionApp.Infrastructure.csproj" />
+  </Folder>
+</Solution>

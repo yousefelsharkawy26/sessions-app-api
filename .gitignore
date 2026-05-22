@@ -1,0 +1,55 @@
+## Visual Studio & MSBuild
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Agent Settings
+.agent/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Re]leasePublic/
+x64/
+x86/
+build/
+bin/
+obj/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Visual Studio Cache
+.vs/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+## dotnet tools
+.dotnet/
+
+## NuGet Packages
+*.nupkg
+# The packages folder can be ignored as of NuGet 3.0+
+**/packages/
+# Except for package folders required by build systems
+!**/packages/build/
+
+## Publish output
+PublishOutput/
+*Publish/
+
+## User Uploads & Temporary Media
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
+
+## OS files
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,6 @@
+@SessionApp.API_HostAddress = http://localhost:5108
+
+GET {{SessionApp.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
