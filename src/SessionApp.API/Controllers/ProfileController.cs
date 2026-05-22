@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SessionApp.Application.Common.DTOs;
 using SessionApp.Application.Common.Models;
 using SessionApp.Application.Features.Profiles.Commands.UpdateProfile;
+using SessionApp.Application.Features.Profiles.Queries.GetPresence;
 using SessionApp.Application.Features.Profiles.Queries.GetUserProfile;
 using SessionApp.Application.Features.Profiles.Queries.SearchUser;
 
@@ -68,6 +69,17 @@ public class ProfileController : ApiControllerBase
     public async Task<ActionResult<BaseResponse<List<UserProfileDto>>>> SearchUser([FromQuery] string searchTerm)
     {
         var result = await Mediator.Send(new SearchUserQuery { SearchTerm = searchTerm });
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("presence")]
+    public async Task<ActionResult<BaseResponse<List<UserPresenceDto>>>> GetUsersPresence([FromBody] List<string> usernames)
+    {
+        var result = await Mediator.Send(new GetPresenceQuery { Usernames = usernames });
         if (!result.IsSuccess)
         {
             return BadRequest(result);

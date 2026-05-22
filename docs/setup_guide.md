@@ -147,9 +147,47 @@ To upload binary media or attachments that the server cannot read (client encryp
 
 ---
 
-## 🧪 Step 6: Run Automated Verification Tests
+## 🟢 Step 6: Batch Presence Querying API
 
-To verify registrations, profile restrictions, key vending, read receipts, and file uploads automatically, run the Python integration suite.
+To check the online status of multiple users at once (e.g., when initializing a list of active chats on app boot):
+
+1. **Endpoint**: `POST /api/profile/presence`
+2. **Payload**: A simple list of usernames:
+   ```json
+   [
+     "alice_7209",
+     "bob_7209",
+     "carol"
+   ]
+   ```
+3. **Response**: A detailed presence object list mapping usernames to their real-time connection status:
+   ```json
+   {
+     "isSuccess": true,
+     "message": "Presence status retrieved successfully.",
+     "data": [
+       {
+         "username": "alice_7209",
+         "isOnline": true
+       },
+       {
+         "username": "bob_7209",
+         "isOnline": false
+       },
+       {
+         "username": "carol",
+         "isOnline": false
+       }
+     ],
+     "errors": null
+   }
+   ```
+
+---
+
+## 🧪 Step 7: Run Automated Verification Tests
+
+To verify registrations, profile restrictions, key vending, read receipts, file uploads, and batch presence checking automatically, run the Python integration suite.
 
 1. Ensure the API is running locally at `http://localhost:5108`.
 2. Run the integration test suite:

@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IImageStorageService, LocalImageStorageService>();
         services.AddScoped<IAttachmentStorageService, LocalAttachmentStorageService>();
         services.AddScoped<IChatNotificationService, ChatNotificationService>();
+        services.AddScoped<IUserPresenceService, UserPresenceService>();
 
         return services;
     }

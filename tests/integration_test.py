@@ -305,7 +305,27 @@ def run_tests():
     assert download_data == simulated_encrypted_data
     print("Attachment retrieval payload match verified!")
     
-    print("\n--- ALL E2EE, PRIVACY, AND ATTACHMENT TESTS PASSED SUCCESSFULLY! ---")
+    # 19. Testing Batch Presence Querying API
+    print("\n19. Testing Batch Presence Querying API (POST /api/profile/presence)...")
+    presence_status, presence_res = make_request("/api/profile/presence", "POST", [ALICE, BOB, "non_existent_user"], token=alice_token)
+    print(f"Presence Status: {presence_status}")
+    print(f"Presence Response: {presence_res}")
+    assert presence_status == 200
+    assert presence_res["isSuccess"] == True
+    presence_data = presence_res["data"]
+    assert len(presence_data) == 3
+    
+    alice_presence = next(p for p in presence_data if p["username"] == ALICE)
+    bob_presence = next(p for p in presence_data if p["username"] == BOB)
+    non_existent_presence = next(p for p in presence_data if p["username"] == "non_existent_user")
+    
+    # Since these are pure HTTP calls, they are not connected to the SignalR socket in this test execution
+    assert alice_presence["isOnline"] == False
+    assert bob_presence["isOnline"] == False
+    assert non_existent_presence["isOnline"] == False
+    print("Batch presence values retrieved successfully and verified!")
+    
+    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, AND PRESENCE TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":
     run_tests()
