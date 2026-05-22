@@ -23,6 +23,8 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.Property(m => m.OneTimePrekeyIdUsed);
 
+        builder.Property(m => m.BurnAfterSeconds);
+
         builder.HasOne(m => m.Sender)
             .WithMany()
             .HasForeignKey(m => m.SenderId)

@@ -15,4 +15,5 @@ public class MessageDto
     public int? OneTimePrekeyIdUsed { get; set; }
     public DateTime SentAt { get; set; }
     public DateTime? ReadAt { get; set; }
+    public int? BurnAfterSeconds { get; set; }
 }

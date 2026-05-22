@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SessionApp.Application.Common.DTOs;
 using SessionApp.Application.Common.Models;
 using SessionApp.Application.Features.Messages.Commands.SendMessage;
+using SessionApp.Application.Features.Messages.Commands.DeleteMessage;
 using SessionApp.Application.Features.Messages.Queries.GetChatHistory;
 
 namespace SessionApp.API.Controllers;
@@ -20,7 +21,8 @@ public class MessageController : ApiControllerBase
             Ciphertext = request.Ciphertext,
             EphemeralKey = request.EphemeralKey,
             SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
-            OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed
+            OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
+            BurnAfterSeconds = request.BurnAfterSeconds
         });
 
         if (!result.IsSuccess)
@@ -45,6 +47,22 @@ public class MessageController : ApiControllerBase
         }
         return Ok(result);
     }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult<BaseResponse<bool>>> DeleteMessage(Guid id)
+    {
+        var result = await Mediator.Send(new DeleteMessageCommand
+        {
+            MessageId = id,
+            UserId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
 }
 
 public record SendMessageRequest
@@ -54,4 +72,5 @@ public record SendMessageRequest
     public required string EphemeralKey { get; init; }
     public int SignedPrekeyIdUsed { get; init; }
     public int? OneTimePrekeyIdUsed { get; init; }
+    public int? BurnAfterSeconds { get; init; }
 }

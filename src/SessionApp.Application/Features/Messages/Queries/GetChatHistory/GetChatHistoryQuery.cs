@@ -31,9 +31,57 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
             return BaseResponse<List<MessageDto>>.Failure("Target user not found.");
         }
 
-        var messages = await _context.Messages
+        // Fetch tracking entities to allow modifications/deletions
+        var allMessages = await _context.Messages
             .Where(m => (m.SenderId == request.UserId && m.ReceiverId == otherUser.Id) ||
                         (m.SenderId == otherUser.Id && m.ReceiverId == request.UserId))
+            .Include(m => m.Sender)
+            .Include(m => m.Receiver)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+
+        // Dynamic Purge: Remove already expired ephemeral messages from DB
+        var expiredMessages = allMessages
+            .Where(m => m.BurnAfterSeconds != null && 
+                        m.ReadAt != null && 
+                        now >= m.ReadAt.Value.AddSeconds(m.BurnAfterSeconds.Value))
+            .ToList();
+
+        if (expiredMessages.Any())
+        {
+            _context.Messages.RemoveRange(expiredMessages);
+            await _context.SaveChangesAsync(cancellationToken);
+            allMessages = allMessages.Except(expiredMessages).ToList();
+        }
+
+        // Mark incoming messages as read
+        var unreadIncomingMessages = allMessages
+            .Where(m => m.SenderId == otherUser.Id && m.ReceiverId == request.UserId && m.ReadAt == null)
+            .ToList();
+
+        if (unreadIncomingMessages.Any())
+        {
+            foreach (var msg in unreadIncomingMessages)
+            {
+                msg.ReadAt = now;
+            }
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Fetch requester username to include in read receipt notification
+            var requester = await _context.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
+            var requesterUsername = requester?.UserName ?? string.Empty;
+
+            // Notify the sender in real-time that their messages were read
+            var messageIds = unreadIncomingMessages.Select(m => m.Id).ToList();
+            await _notificationService.NotifyMessagesReadAsync(
+                otherUser.UserName!, 
+                requesterUsername, 
+                messageIds, 
+                cancellationToken);
+        }
+
+        var dtos = allMessages
             .OrderBy(m => m.SentAt)
             .Select(m => new MessageDto
             {
@@ -47,43 +95,11 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
                 SignedPrekeyIdUsed = m.SignedPrekeyIdUsed,
                 OneTimePrekeyIdUsed = m.OneTimePrekeyIdUsed,
                 SentAt = m.SentAt,
-                ReadAt = m.ReadAt
+                ReadAt = m.ReadAt,
+                BurnAfterSeconds = m.BurnAfterSeconds
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        // Mark incoming messages as read
-        var unreadIncomingMessages = await _context.Messages
-            .Where(m => m.SenderId == otherUser.Id && m.ReceiverId == request.UserId && m.ReadAt == null)
-            .ToListAsync(cancellationToken);
-
-        if (unreadIncomingMessages.Any())
-        {
-            var now = DateTime.UtcNow;
-            foreach (var msg in unreadIncomingMessages)
-            {
-                msg.ReadAt = now;
-            }
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // Fetch requester username to include in read receipt notification
-            var requester = await _context.Users.FindAsync(new object[] { request.UserId }, cancellationToken);
-            var requesterUsername = requester?.UserName ?? string.Empty;
-
-            // Update in the returned list as well
-            foreach (var dto in messages.Where(m => m.SenderId == otherUser.Id && m.ReadAt == null))
-            {
-                dto.ReadAt = now;
-            }
-
-            // Notify the sender in real-time that their messages were read
-            var messageIds = unreadIncomingMessages.Select(m => m.Id).ToList();
-            await _notificationService.NotifyMessagesReadAsync(
-                otherUser.UserName!, 
-                requesterUsername, 
-                messageIds, 
-                cancellationToken);
-        }
-
-        return BaseResponse<List<MessageDto>>.Success(messages);
+        return BaseResponse<List<MessageDto>>.Success(dtos);
     }
 }

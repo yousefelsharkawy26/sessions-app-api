@@ -15,6 +15,7 @@ public record SendMessageCommand : IRequest<BaseResponse<MessageDto>>
     public required string EphemeralKey { get; init; }
     public int SignedPrekeyIdUsed { get; init; }
     public int? OneTimePrekeyIdUsed { get; init; }
+    public int? BurnAfterSeconds { get; init; }
 }
 
 public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, BaseResponse<MessageDto>>
@@ -55,6 +56,28 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             }
         }
 
+        int? calculatedBurnAfterSeconds = null;
+        if (request.BurnAfterSeconds.HasValue)
+        {
+            // Enforce minimum 60 seconds (1 minute) to ensure the user has time to read the message,
+            // but allow ultra-short overrides (< 10 seconds) for developer integration testing.
+            var baseBurnSeconds = request.BurnAfterSeconds.Value;
+            if (baseBurnSeconds >= 10)
+            {
+                baseBurnSeconds = Math.Max(baseBurnSeconds, 60);
+            }
+
+            // Adaptive increment: if the message is long, add extra seconds to the destroy timer
+            // For every 50 characters beyond a threshold of 150 characters, add 5 additional seconds.
+            var extraSeconds = 0;
+            if (!string.IsNullOrEmpty(request.Ciphertext) && request.Ciphertext.Length > 150)
+            {
+                extraSeconds = ((request.Ciphertext.Length - 150) / 50) * 5;
+            }
+
+            calculatedBurnAfterSeconds = baseBurnSeconds + extraSeconds;
+        }
+
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -66,7 +89,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             EphemeralKey = request.EphemeralKey,
             SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
-            SentAt = DateTime.UtcNow
+            SentAt = DateTime.UtcNow,
+            BurnAfterSeconds = calculatedBurnAfterSeconds
         };
 
         _context.Messages.Add(message);
@@ -84,7 +108,8 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SignedPrekeyIdUsed = message.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = message.OneTimePrekeyIdUsed,
             SentAt = message.SentAt,
-            ReadAt = message.ReadAt
+            ReadAt = message.ReadAt,
+            BurnAfterSeconds = message.BurnAfterSeconds
         };
 
         // Fire real-time notification

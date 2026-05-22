@@ -185,7 +185,38 @@ To check the online status of multiple users at once (e.g., when initializing a 
 
 ---
 
-## 🧪 Step 7: Run Automated Verification Tests
+## 🕒 Step 7: Self-Destructing / Ephemeral Messages (Burn-on-Read)
+
+To protect sensitive communications, you can specify a burn timer (in seconds) on a per-message basis. When the receiver fetches their chat history, any unread messages have their countdown started. Once the time elapses, the messages are permanently deleted from the database and can never be retrieved again.
+
+### 🛡️ Smart Safeguards & Adaptive Timing:
+To ensure the recipient actually has enough time to read sensitive messages, the API implements two advanced timing rules:
+1. **1-Minute Minimum Rule**: Any ephemeral message is enforced to have a burn timer of **at least 60 seconds (1 minute)** upon receipt, preventing accidental premature deletion. *(Note: Developers can bypass this minimum by specifying a duration under 10 seconds for rapid testing).*
+2. **Adaptive Character Scaling**: If a message has a long payload, the burn timer is automatically incremented! For every **50 characters of ciphertext beyond a 150-character threshold**, the API appends **5 additional seconds** to the burn duration, dynamically granting readers more time for long, detailed statements.
+
+1. **Send Message with Burn Timer**:
+   * **Endpoint**: `POST /api/message/send`
+   * **Payload**: Add `burnAfterSeconds` to the standard payload:
+     ```json
+     {
+       "receiverUsername": "alice",
+       "ciphertext": "encrypted_sensitive_content",
+       "ephemeralKey": "ephemeral_key_data",
+       "signedPrekeyIdUsed": 100,
+       "oneTimePrekeyIdUsed": 1001,
+       "burnAfterSeconds": 20
+     }
+     ```
+   * **Calculated Timer**: The base `20` seconds is rounded up to the `60`-second minimum automatically.
+2. **First Retrieve / Read Message (Starts Countdown)**:
+   * **Endpoint**: `GET /api/message/chat/bob`
+   * **Result**: Returns the message with the calculated `burnAfterSeconds` and sets `readAt` in the database.
+3. **Subsequent Retrieve (Purged/Burned)**:
+   * Once the calculated duration has elapsed from the message's read time, any subsequent query will automatically purge the expired messages from the database. They will no longer be returned.
+
+---
+
+## 🧪 Step 8: Run Automated Verification Tests
 
 To verify registrations, profile restrictions, key vending, read receipts, file uploads, and batch presence checking automatically, run the Python integration suite.
 
@@ -198,11 +229,47 @@ To verify registrations, profile restrictions, key vending, read receipts, file 
    ```
    --- Running E2EE & Core Messaging API Integration Tests ---
    ...
-   18. Testing Encrypted Media & File Attachment Relay (Blind Storage)...
-   Upload Status: 200
-   Downloading uploaded attachment...
-   Download Status: 200
-   Attachment retrieval payload match verified!
+   20. Testing Ephemeral Messages (Burn-on-Read)...
+   Alice retrieves chat history for the first time (Starts burn timer)...
+   Waiting 3 seconds for message to burn...
+   Alice retrieves chat history again after burn elapsed...
+   Ephemeral message successfully burned and verified as completely deleted from the database!
+   
+   21. Testing Message Deletion (Manual Delete)...
+   Long term message sent successfully. ID: 2ffb88af-3ed4-4cd1-98b8-6077a76774db
+   Verified message exists in Bob's view.
+   Alice deletes the message manually...
+   Delete response checked and verified success.
+   Verified message has been permanently deleted from both sides.
 
-   --- ALL E2EE, PRIVACY, AND ATTACHMENT TESTS PASSED SUCCESSFULLY! ---
+   --- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, AND DELETION TESTS PASSED SUCCESSFULLY! ---
    ```
+
+---
+
+## 🗑️ Step 9: Message Types & Manual Deletion
+
+To support different storage lifecycles, the app categorizes messages into two types:
+
+1. **Long-Term Messages**:
+   * **Behavior**: Messages sent without a burn timer (`burnAfterSeconds` is omitted or sent as `null`).
+   * **Persistence**: Persisted indefinitely in the PostgreSQL DB on Neon.
+   * **Deletion**: Only removed when a user explicitly initiates a manual deletion request.
+2. **Self-Destructing / Ephemeral Messages**:
+   * **Behavior**: Messages sent with `burnAfterSeconds` populated.
+   * **Persistence**: Temporary. Once read by the recipient, the timer starts and the message is permanently deleted after the duration expires.
+
+### 🗑️ Manual Delete Endpoint:
+* **Endpoint**: `DELETE /api/message/{id}`
+* **Headers**: `Authorization: Bearer <token>`
+* **Authorization Rules**: Only the sender or the receiver of the message is authorized to delete it.
+* **Notification**: If either party deletes the message, the API triggers a real-time SignalR `MessageDeleted` event to notify the online recipient to instantly remove the message bubble from their UI.
+* **Result**:
+  ```json
+  {
+    "isSuccess": true,
+    "message": "Message deleted successfully.",
+    "data": true,
+    "errors": null
+  }
+  ```

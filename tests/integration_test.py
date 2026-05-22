@@ -325,7 +325,112 @@ def run_tests():
     assert non_existent_presence["isOnline"] == False
     print("Batch presence values retrieved successfully and verified!")
     
-    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, AND PRESENCE TESTS PASSED SUCCESSFULLY! ---")
+    # 20. Testing Ephemeral Messages (Burn-on-Read)
+    print("\n20. Testing Ephemeral Messages (Burn-on-Read)...")
+    
+    # 20a. Verify 1-minute minimum rule for normal requested burn durations (>= 10 seconds)
+    print("Testing 1-minute minimum rule for normal burn durations...")
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": "normal_ephemeral_ciphertext",
+        "ephemeralKey": "bob_ephemeral_key_normal",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": 1002,
+        "burnAfterSeconds": 20  # Should be converted to 60 seconds
+    }, token=bob_token)
+    assert status == 200
+    assert res["data"]["burnAfterSeconds"] == 60
+    print("Normal burn duration minimum of 60 seconds verified successfully!")
+
+    # 20b. Verify adaptive increment for long messages
+    print("Testing adaptive increment for long messages...")
+    long_ciphertext = "a" * 255  # 255 characters (105 characters above the 150 threshold) -> adds 10 extra seconds (105 / 50 * 5)
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": long_ciphertext,
+        "ephemeralKey": "bob_ephemeral_key_long",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": 1002,
+        "burnAfterSeconds": 20  # Base 20 -> minimum 60 -> plus 10 extra seconds = 70 seconds total
+    }, token=bob_token)
+    assert status == 200
+    assert res["data"]["burnAfterSeconds"] == 70
+    print(f"Adaptive increment verified! Long message received burnAfterSeconds of {res['data']['burnAfterSeconds']} instead of 60.")
+
+    # 20c. Bob sends an ephemeral message with an ultra-short 2-second burn timer (bypassing minimum for testing speed)
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": "ephemeral_bob_to_alice_ciphertext",
+        "ephemeralKey": "bob_ephemeral_key_2",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": 1002,
+        "burnAfterSeconds": 2
+    }, token=bob_token)
+    print(f"Send Ephemeral Status: {status}")
+    assert status == 200
+    assert res["isSuccess"] == True
+    assert res["data"]["burnAfterSeconds"] == 2
+    ephemeral_msg_id = res["data"]["id"]
+    
+    # Alice retrieves chat history - this marks the message as read and starts the burn timer!
+    print("Alice retrieves chat history for the first time (Starts burn timer)...")
+    status, res = make_request(f"/api/message/chat/{BOB}", "GET", token=alice_token)
+    print(f"Chat count: {len(res['data'])}")
+    # Should include our ephemeral message
+    ephemeral_msg = next((m for m in res["data"] if m["id"] == ephemeral_msg_id), null := None)
+    assert ephemeral_msg is not None
+    assert ephemeral_msg["burnAfterSeconds"] == 2
+    assert ephemeral_msg["readAt"] is not None
+    print(f"Ephemeral message retrieved and read state initialized at {ephemeral_msg['readAt']}")
+    
+    # Wait for the burn timer to elapse (3 seconds)
+    import time
+    print("Waiting 3 seconds for message to burn...")
+    time.sleep(3)
+    
+    # Alice retrieves chat history again - the expired message should now be purged
+    print("Alice retrieves chat history again after burn elapsed...")
+    status, res = make_request(f"/api/message/chat/{BOB}", "GET", token=alice_token)
+    print(f"Chat count: {len(res['data'])}")
+    ephemeral_msg_after = next((m for m in res["data"] if m["id"] == ephemeral_msg_id), null := None)
+    assert ephemeral_msg_after is None
+    print("Ephemeral message successfully burned and verified as completely deleted from the database!")
+    
+    # 21. Testing Message Deletion (Manual Delete)
+    print("\n21. Testing Message Deletion (Manual Delete)...")
+    # Alice sends a long term message (burnAfterSeconds is null) to Bob
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": BOB,
+        "ciphertext": "long_term_message_ciphertext",
+        "ephemeralKey": "alice_long_term_ephemeral_key",
+        "signedPrekeyIdUsed": 200,
+        "oneTimePrekeyIdUsed": None,
+        "burnAfterSeconds": None
+    }, token=alice_token)
+    assert status == 200
+    msg_id = res["data"]["id"]
+    print(f"Long term message sent successfully. ID: {msg_id}")
+
+    # Bob fetches chat history to confirm it is present
+    status, res = make_request(f"/api/message/chat/{ALICE}", "GET", token=bob_token)
+    matching_msg = next((m for m in res["data"] if m["id"] == msg_id), None)
+    assert matching_msg is not None
+    print("Verified message exists in Bob's view.")
+
+    # Alice deletes the message
+    print("Alice deletes the message manually...")
+    status, res = make_request(f"/api/message/{msg_id}", "DELETE", token=alice_token)
+    assert status == 200
+    assert res["isSuccess"] == True
+    print("Delete response checked and verified success.")
+
+    # Bob fetches chat history to verify it is no longer returned
+    status, res = make_request(f"/api/message/chat/{ALICE}", "GET", token=bob_token)
+    matching_msg_after = next((m for m in res["data"] if m["id"] == msg_id), None)
+    assert matching_msg_after is None
+    print("Verified message has been permanently deleted from both sides.")
+    
+    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, AND DELETION TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":
     run_tests()

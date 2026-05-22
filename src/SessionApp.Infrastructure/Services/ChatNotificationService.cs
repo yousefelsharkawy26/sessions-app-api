@@ -24,4 +24,13 @@ public class ChatNotificationService(IHubContext<ChatHub> _hubContext) : IChatNo
                 MessageIds = messageIds 
             }, cancellationToken);
     }
+
+    public async Task NotifyMessageDeletedAsync(string targetUsername, Guid messageId, CancellationToken cancellationToken)
+    {
+        await _hubContext.Clients.User(targetUsername)
+            .SendAsync("MessageDeleted", new 
+            { 
+                MessageId = messageId 
+            }, cancellationToken);
+    }
 }

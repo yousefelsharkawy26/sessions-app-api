@@ -10,4 +10,5 @@ public interface IChatNotificationService
 {
     Task NotifyNewMessageAsync(string receiverUsername, MessageDto messageDto, CancellationToken cancellationToken);
     Task NotifyMessagesReadAsync(string receiverUsername, string readerUsername, List<Guid> messageIds, CancellationToken cancellationToken);
+    Task NotifyMessageDeletedAsync(string targetUsername, Guid messageId, CancellationToken cancellationToken);
 }

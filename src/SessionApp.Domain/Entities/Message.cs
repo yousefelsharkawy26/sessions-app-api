@@ -13,4 +13,5 @@ public class Message
     public int? OneTimePrekeyIdUsed { get; set; }
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReadAt { get; set; }
+    public int? BurnAfterSeconds { get; set; }
 }

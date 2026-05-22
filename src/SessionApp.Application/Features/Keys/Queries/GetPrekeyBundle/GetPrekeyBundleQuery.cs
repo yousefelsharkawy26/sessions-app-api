@@ -53,7 +53,9 @@ public class GetPrekeyBundleQueryHandler : IRequestHandler<GetPrekeyBundleQuery,
         // Vend one One-Time Prekey (OTP) and delete it from the database
         OneTimePrekeyDto? otpDto = null;
         var otp = await _context.OneTimePrekeys
-            .FirstOrDefaultAsync(o => o.UserId == targetUser.Id, cancellationToken);
+            .Where(o => o.UserId == targetUser.Id)
+            .OrderBy(o => o.KeyId)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (otp != null)
         {
