@@ -47,6 +47,7 @@ PublishOutput/
 
 ## User Uploads & Temporary Media
 wwwroot/uploads/*
+wwwroot/attachments/
 !wwwroot/uploads/.gitkeep
 
 ## OS files
