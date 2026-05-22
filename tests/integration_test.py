@@ -245,6 +245,18 @@ def run_tests():
     assert msg2["signedPrekeyIdUsed"] == 200
     assert msg2["oneTimePrekeyIdUsed"] == 2001
     
+    # 17. Query Key Status for Alice (Verifying key depletion count is tracked perfectly)
+    print("\n17. Querying key status for Alice...")
+    status, res = make_request("/api/keys/status", "GET", token=alice_token)
+    print(f"Status: {status}")
+    print(f"Response: {res}")
+    assert status == 200
+    assert res["isSuccess"] == True
+    assert res["data"]["isUploaded"] == True
+    # Alice started with 2 OTPs, Bob vended both (1001 and 1002). Count should now be exactly 0.
+    assert res["data"]["remainingOneTimePrekeysCount"] == 0
+    assert res["data"]["signedPrekeyId"] == 100
+    
     print("\n--- ALL E2EE & PRIVACY TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":

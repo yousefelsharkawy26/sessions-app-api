@@ -127,6 +127,7 @@ if (app.Environment.IsDevelopment() || true) // Enable Swagger in prod/demo for 
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "SessionApp API v1");
         c.RoutePrefix = "swagger";
+        c.InjectStylesheet("/swagger-ui/custom.css");
     });
 }
 

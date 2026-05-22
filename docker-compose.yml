@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/SessionApp.API/Dockerfile
+    container_name: sessions_api
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - JwtSettings__Secret=AntigravitySuperSecretKeyWhichMustBeAtLeast32BytesLong!
+      - JwtSettings__Issuer=SessionAppAPI
+      - JwtSettings__Audience=SessionAppUsers
+      - JwtSettings__ExpiryMinutes=1440
+      # By default, it will use the hosted Neon connection string defined in appsettings.json
+      # If you want to override it at runtime, you can uncomment and set the line below:
+      # - ConnectionStrings__DefaultConnection=Host=your-neon-host;Database=neondb;Username=neondb_owner;Password=your-password;SSL Mode=VerifyFull;Channel Binding=Require;

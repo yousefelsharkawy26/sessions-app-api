@@ -5,6 +5,8 @@ using SessionApp.Application.Common.Models;
 using SessionApp.Application.Features.Keys.Commands.UploadKeys;
 using SessionApp.Application.Features.Keys.Queries.GetPrekeyBundle;
 
+using SessionApp.Application.Features.Keys.Queries.GetKeyStatus;
+
 namespace SessionApp.API.Controllers;
 
 [Authorize]
@@ -37,6 +39,21 @@ public class KeysController : ApiControllerBase
         {
             TargetUsername = username,
             RequesterId = CurrentUserId!
+        });
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("status")]
+    public async Task<ActionResult<BaseResponse<KeyStatusDto>>> GetKeyStatus()
+    {
+        var result = await Mediator.Send(new GetKeyStatusQuery
+        {
+            UserId = CurrentUserId!
         });
 
         if (!result.IsSuccess)
