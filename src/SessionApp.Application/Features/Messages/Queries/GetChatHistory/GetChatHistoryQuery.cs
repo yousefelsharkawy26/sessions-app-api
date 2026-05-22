@@ -65,6 +65,7 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
             foreach (var msg in unreadIncomingMessages)
             {
                 msg.ReadAt = now;
+                msg.DeliveredAt ??= now;
             }
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -95,8 +96,11 @@ public class GetChatHistoryQueryHandler : IRequestHandler<GetChatHistoryQuery, B
                 SignedPrekeyIdUsed = m.SignedPrekeyIdUsed,
                 OneTimePrekeyIdUsed = m.OneTimePrekeyIdUsed,
                 SentAt = m.SentAt,
+                DeliveredAt = m.DeliveredAt,
                 ReadAt = m.ReadAt,
-                BurnAfterSeconds = m.BurnAfterSeconds
+                BurnAfterSeconds = m.BurnAfterSeconds,
+                IsEdited = m.IsEdited,
+                EditedAt = m.EditedAt
             })
             .ToList();
 

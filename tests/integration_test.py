@@ -430,7 +430,214 @@ def run_tests():
     assert matching_msg_after is None
     print("Verified message has been permanently deleted from both sides.")
     
-    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, AND DELETION TESTS PASSED SUCCESSFULLY! ---")
+    # 22. Testing Message Editing (E2EE Message Editing API)
+    print("\n22. Testing Message Editing (E2EE Message Editing API)...")
+    # Bob sends a long term message to Alice
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": "original_bob_ciphertext",
+        "ephemeralKey": "bob_ephemeral_key_edit_test",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": None,
+        "burnAfterSeconds": None
+    }, token=bob_token)
+    assert status == 200
+    msg_id = res["data"]["id"]
+    print(f"Original message sent successfully. ID: {msg_id}")
+
+    # Bob edits his message
+    print("Bob edits his message...")
+    status, res = make_request(f"/api/message/{msg_id}", "PUT", {
+        "newCiphertext": "edited_bob_ciphertext",
+        "newEphemeralKey": "new_bob_ephemeral_key_edit_test"
+    }, token=bob_token)
+    assert status == 200
+    assert res["isSuccess"] == True
+    assert res["data"]["isEdited"] == True
+    assert res["data"]["editedAt"] is not None
+    assert res["data"]["ciphertext"] == "edited_bob_ciphertext"
+    assert res["data"]["ephemeralKey"] == "new_bob_ephemeral_key_edit_test"
+    print("Bob's edit response verified successfully.")
+
+    # Alice fetches history and verifies she gets the updated message
+    status, res = make_request(f"/api/message/chat/{BOB}", "GET", token=alice_token)
+    edited_msg = next((m for m in res["data"] if m["id"] == msg_id), None)
+    assert edited_msg is not None
+    assert edited_msg["isEdited"] == True
+    assert edited_msg["ciphertext"] == "edited_bob_ciphertext"
+    print("Alice verified the edited message correctly.")
+
+    # Alice tries to edit Bob's message (Should fail)
+    print("Alice tries to edit Bob's message (expected failure)...")
+    status, res = make_request(f"/api/message/{msg_id}", "PUT", {
+        "newCiphertext": "alice_hijack_ciphertext",
+        "newEphemeralKey": "alice_hijack_key"
+    }, token=alice_token)
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert "permission" in res["errors"][0]
+    print("Unauthorized edit attempt blocked and verified.")
+
+    # Bob sends an ephemeral message with a 2-second burn timer
+    status, res = make_request("/api/message/send", "POST", {
+        "receiverUsername": ALICE,
+        "ciphertext": "ephemeral_to_be_read_ciphertext",
+        "ephemeralKey": "bob_ephemeral_key_burn_edit_test",
+        "signedPrekeyIdUsed": 100,
+        "oneTimePrekeyIdUsed": None,
+        "burnAfterSeconds": 2
+    }, token=bob_token)
+    assert status == 200
+    ephemeral_msg_id = res["data"]["id"]
+
+    # Alice retrieves history to mark the message as read (starts burning)
+    status, res = make_request(f"/api/message/chat/{BOB}", "GET", token=alice_token)
+    
+    # Bob tries to edit the burning message (Should fail)
+    print("Bob tries to edit the burning ephemeral message (expected failure)...")
+    status, res = make_request(f"/api/message/{ephemeral_msg_id}", "PUT", {
+        "newCiphertext": "edited_burning_ciphertext",
+        "newEphemeralKey": "edited_burning_key"
+    }, token=bob_token)
+    assert status == 400
+    assert res["isSuccess"] == False
+    assert "burning" in res["errors"][0]
+    print("Edit attempt on burning message blocked and verified successfully.")
+    
+    # 23. Testing E2EE Group Chats
+    print("\n23. Testing E2EE Group Chats...")
+    CHARLIE = f"charlie_{suffix}"
+    DAVID = f"david_{suffix}"
+    
+    # Register Charlie
+    print(f"Registering Charlie ({CHARLIE})...")
+    status, res = make_request("/api/auth/register", "POST", {
+        "username": CHARLIE,
+        "password": "Password123!",
+        "displayName": "Charlie Chaplin"
+    })
+    assert status == 200
+    
+    # Log in Charlie
+    print("Logging in Charlie...")
+    status, res = make_request("/api/auth/login", "POST", {
+        "username": CHARLIE,
+        "password": "Password123!"
+    })
+    assert status == 200
+    charlie_token = res["data"]["token"]
+
+    # Charlie uploads prekeys so we can fetch them batched
+    print("Charlie uploads E2EE prekeys...")
+    status, res = make_request("/api/keys/upload", "POST", {
+        "identityKey": "charlie_identity_key_base64",
+        "signedPrekey": "charlie_signed_prekey_base64",
+        "signature": "charlie_signature_base64",
+        "signedPrekeyId": 300,
+        "oneTimePrekeys": [
+            {"keyId": 3001, "keyData": "charlie_otp_1"},
+            {"keyId": 3002, "keyData": "charlie_otp_2"}
+        ]
+    }, token=charlie_token)
+    print(f"Charlie Upload Prekeys Status: {status}, Response: {res}")
+    assert status == 200
+
+    # Register David
+    print(f"Registering David ({DAVID})...")
+    status, res = make_request("/api/auth/register", "POST", {
+        "username": DAVID,
+        "password": "Password123!",
+        "displayName": "David Copperfield"
+    })
+    assert status == 200
+    
+    # Log in David
+    print("Logging in David...")
+    status, res = make_request("/api/auth/login", "POST", {
+        "username": DAVID,
+        "password": "Password123!"
+    })
+    assert status == 200
+    david_token = res["data"]["token"]
+
+    # Alice creates a group with Bob and Charlie
+    print("Alice creates E2EE group...")
+    status, res = make_request("/api/group", "POST", {
+        "name": "Secret Society",
+        "memberUsernames": [BOB, CHARLIE]
+    }, token=alice_token)
+    assert status == 200
+    group_id = res["data"]["id"]
+    print(f"Group created successfully. ID: {group_id}")
+    members = [m["username"] for m in res["data"]["members"]]
+    assert ALICE in members
+    assert BOB in members
+    assert CHARLIE in members
+
+    # Alice fetches other members' prekey bundles (Batched E2EE setup)
+    print("Alice fetches batched member prekeys for pairwise key sharing...")
+    status, res = make_request(f"/api/group/{group_id}/prekeys", "GET", token=alice_token)
+    assert status == 200
+    prekey_list = res["data"]
+    usernames_with_keys = [p["username"] for p in prekey_list]
+    assert BOB in usernames_with_keys
+    assert CHARLIE in usernames_with_keys
+    print("Alice successfully retrieved prekey bundles for Bob and Charlie.")
+
+    # Alice sends an E2EE message to the group (encrypted via group Sender Key)
+    print("Alice sends E2EE group message...")
+    status, res = make_request("/api/message/group", "POST", {
+        "groupId": group_id,
+        "ciphertext": "group_ciphertext_from_alice",
+        "ephemeralKey": "alice_group_ephemeral_key"
+    }, token=alice_token)
+    assert status == 200
+    msg_id = res["data"]["id"]
+    print(f"Group message sent. ID: {msg_id}")
+
+    # Bob retrieves group history and confirms he sees the ciphertext
+    print("Bob retrieves group chat history...")
+    status, res = make_request(f"/api/message/group/{group_id}", "GET", token=bob_token)
+    assert status == 200
+    group_msgs = res["data"]
+    assert len(group_msgs) == 1
+    assert group_msgs[0]["ciphertext"] == "group_ciphertext_from_alice"
+    assert group_msgs[0]["senderUsername"] == ALICE
+    print("Bob successfully retrieved and verified the E2EE group message.")
+
+    # Charlie adds David to the group
+    print("Charlie adds David to the group...")
+    status, res = make_request(f"/api/group/{group_id}/member", "POST", {
+        "username": DAVID
+    }, token=charlie_token)
+    assert status == 200
+
+    # Charlie removes Bob from the group
+    print("Charlie removes Bob from the group...")
+    status, res = make_request(f"/api/group/{group_id}/member", "DELETE", {
+        "username": BOB
+    }, token=charlie_token)
+    assert status == 200
+
+    # Bob tries to fetch history (Should fail)
+    print("Bob tries to fetch group history after being removed (expected failure)...")
+    status, res = make_request(f"/api/message/group/{group_id}", "GET", token=bob_token)
+    assert status == 400
+    assert res["isSuccess"] == False
+    print("Bob's access to group history was successfully revoked.")
+
+    # Bob tries to send a message to the group (Should fail)
+    print("Bob tries to send group message after being removed (expected failure)...")
+    status, res = make_request("/api/message/group", "POST", {
+        "groupId": group_id,
+        "ciphertext": "unauthorized_group_ciphertext",
+        "ephemeralKey": "bob_group_ephemeral_key"
+    }, token=bob_token)
+    assert status == 400
+    assert res["isSuccess"] == False
+    print("Bob's ability to post messages to the group was successfully revoked.")
+    
+    print("\n--- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, DELETION, EDITING, AND GROUP TESTS PASSED SUCCESSFULLY! ---")
 
 if __name__ == "__main__":
     run_tests()

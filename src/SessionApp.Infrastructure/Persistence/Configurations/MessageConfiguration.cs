@@ -15,15 +15,16 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasColumnType("text");
 
         builder.Property(m => m.EphemeralKey)
-            .IsRequired()
             .HasMaxLength(256);
 
-        builder.Property(m => m.SignedPrekeyIdUsed)
-            .IsRequired();
+        builder.Property(m => m.SignedPrekeyIdUsed);
 
         builder.Property(m => m.OneTimePrekeyIdUsed);
 
         builder.Property(m => m.BurnAfterSeconds);
+        builder.Property(m => m.DeliveredAt);
+        builder.Property(m => m.IsEdited);
+        builder.Property(m => m.EditedAt);
 
         builder.HasOne(m => m.Sender)
             .WithMany()
@@ -35,8 +36,14 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasForeignKey(m => m.ReceiverId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(m => m.Group)
+            .WithMany(g => g.Messages)
+            .HasForeignKey(m => m.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(m => m.SenderId);
         builder.HasIndex(m => m.ReceiverId);
+        builder.HasIndex(m => m.GroupId);
         builder.HasIndex(m => m.SentAt);
     }
 }

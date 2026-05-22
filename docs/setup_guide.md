@@ -242,7 +242,13 @@ To verify registrations, profile restrictions, key vending, read receipts, file 
    Delete response checked and verified success.
    Verified message has been permanently deleted from both sides.
 
-   --- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, AND DELETION TESTS PASSED SUCCESSFULLY! ---
+   22. Testing Message Editing (E2EE Message Editing API)...
+   Bob's edit response verified successfully.
+   Alice verified the edited message correctly.
+   Unauthorized edit attempt blocked and verified.
+   Edit attempt on burning message blocked and verified successfully.
+
+   --- ALL E2EE, PRIVACY, ATTACHMENT, PRESENCE, EPHEMERAL, DELETION, AND EDITING TESTS PASSED SUCCESSFULLY! ---
    ```
 
 ---
@@ -273,3 +279,152 @@ To support different storage lifecycles, the app categorizes messages into two t
     "errors": null
   }
   ```
+
+---
+
+## ✍️ Step 10: E2EE Message Editing API
+
+Since message contents are End-to-End Encrypted (E2EE), editing a message requires uploading a newly encrypted ciphertext with its corresponding ephemeral key.
+
+### 🛡️ Safety Safeguards:
+1. **Sender-Only Authorization**: Only the original sender of the message has permission to edit it.
+2. **Burning Ephemeral Lock**: If a message is self-destructing, it cannot be edited once the recipient has read it (meaning the countdown timer has already started).
+
+### ✍️ Edit Message Endpoint:
+* **Endpoint**: `PUT /api/message/{id}`
+* **Headers**: `Authorization: Bearer <token>`
+* **Payload**:
+  ```json
+  {
+    "newCiphertext": "edited_encrypted_content",
+    "newEphemeralKey": "new_bob_ephemeral_key"
+  }
+  ```
+* **Real-time Event**: Triggers a SignalR `MessageEdited` event containing the updated `MessageDto` to immediately refresh the recipient's user interface.
+* **Result**:
+  ```json
+  {
+    "isSuccess": true,
+    "message": "Message edited successfully.",
+    "data": {
+      "id": "f38bedc4-1ba4-4441-b0c8-891831a59672",
+      "senderId": "844870c0-28d5-4aee-aa7c-8b6ffe7ce1c8",
+      "senderUsername": "bob",
+      "receiverUsername": "alice",
+      "ciphertext": "edited_encrypted_content",
+      "ephemeralKey": "new_bob_ephemeral_key",
+      "isEdited": true,
+      "editedAt": "2026-05-22T21:49:40.123456Z",
+      "burnAfterSeconds": null
+    },
+    "errors": null
+  }
+  ```
+
+---
+
+## 👥 Step 11: E2EE Group Chats (Sender Keys / Pairwise Setup)
+
+To support Signal-style E2EE group messaging, the app enables:
+1. **Dynamic Group Management**: Group creation, member addition, and member removal.
+2. **Batched Pairwise Prekey Distribution**: Allowing a group member to fetch prekey bundles for all other members in a single request. This is used by the client to establish pairwise sessions to distribute the Group Sender Key.
+3. **E2EE Group Messaging**: Relay group messages encrypted with the Sender Key via SignalR to all online group members.
+
+### 👥 Create Group Endpoint:
+* **Endpoint**: `POST /api/group`
+* **Headers**: `Authorization: Bearer <token>`
+* **Payload**:
+  ```json
+  {
+    "name": "Secret Society",
+    "memberUsernames": ["bob", "charlie"]
+  }
+  ```
+* **Result**:
+  ```json
+  {
+    "isSuccess": true,
+    "message": "Group created successfully.",
+    "data": {
+      "id": "db303ede-451e-4072-b533-06e7e2baab3f",
+      "name": "Secret Society",
+      "createdAt": "2026-05-22T18:59:09.1234Z",
+      "members": [
+        {
+          "userId": "alice-guid",
+          "username": "alice",
+          "joinedAt": "2026-05-22T18:59:09.1234Z"
+        },
+        {
+          "userId": "bob-guid",
+          "username": "bob",
+          "joinedAt": "2026-05-22T18:59:09.1234Z"
+        }
+      ]
+    },
+    "errors": null
+  }
+  ```
+
+### 👥 Fetch Group Prekeys (Batched):
+* **Endpoint**: `GET /api/group/{id}/prekeys`
+* **Headers**: `Authorization: Bearer <token>`
+* **Result**: Returns all prekey bundles for group members to execute pairwise E2EE setups:
+  ```json
+  {
+    "isSuccess": true,
+    "message": "Group member prekeys retrieved successfully.",
+    "data": [
+      {
+        "username": "bob",
+        "prekeyBundle": {
+          "identityKey": "bob_identity_key_base64",
+          "signedPrekey": "bob_signed_prekey_base64",
+          "signature": "bob_signature_base64",
+          "signedPrekeyId": 200,
+          "oneTimePrekey": {
+            "keyId": 2001,
+            "keyData": "bob_otp_1"
+          }
+        }
+      }
+    ],
+    "errors": null
+  }
+  ```
+
+### 👥 Add Group Member:
+* **Endpoint**: `POST /api/group/{id}/member`
+* **Headers**: `Authorization: Bearer <token>`
+* **Payload**:
+  ```json
+  {
+    "username": "david"
+  }
+  ```
+
+### 👥 Remove Group Member:
+* **Endpoint**: `DELETE /api/group/{id}/member`
+* **Headers**: `Authorization: Bearer <token>`
+* **Payload**:
+  ```json
+  {
+    "username": "bob"
+  }
+  ```
+
+### 👥 Send Group Message:
+* **Endpoint**: `POST /api/message/group`
+* **Headers**: `Authorization: Bearer <token>`
+* **Payload**:
+  ```json
+  {
+    "groupId": "db303ede-451e-4072-b533-06e7e2baab3f",
+    "ciphertext": "group_ciphertext_from_alice",
+    "ephemeralKey": "alice_group_ephemeral_key"
+  }
+  ```
+
+### 👥 Get Group Chat History:
+* **Endpoint**: `GET /api/message/group/{groupId}`
+* **Headers**: `Authorization: Bearer <token>`

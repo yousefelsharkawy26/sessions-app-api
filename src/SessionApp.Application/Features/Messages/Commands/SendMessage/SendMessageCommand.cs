@@ -22,11 +22,13 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
 {
     private readonly IApplicationDbContext _context;
     private readonly IChatNotificationService _notificationService;
+    private readonly IUserPresenceService _presenceService;
 
-    public SendMessageCommandHandler(IApplicationDbContext context, IChatNotificationService notificationService)
+    public SendMessageCommandHandler(IApplicationDbContext context, IChatNotificationService notificationService, IUserPresenceService presenceService)
     {
         _context = context;
         _notificationService = notificationService;
+        _presenceService = presenceService;
     }
 
     public async Task<BaseResponse<MessageDto>> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -78,6 +80,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             calculatedBurnAfterSeconds = baseBurnSeconds + extraSeconds;
         }
 
+        var isOnline = _presenceService.IsUserOnline(receiver.UserName!);
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -90,6 +93,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SignedPrekeyIdUsed = request.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = request.OneTimePrekeyIdUsed,
             SentAt = DateTime.UtcNow,
+            DeliveredAt = isOnline ? DateTime.UtcNow : null,
             BurnAfterSeconds = calculatedBurnAfterSeconds
         };
 
@@ -108,6 +112,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Bas
             SignedPrekeyIdUsed = message.SignedPrekeyIdUsed,
             OneTimePrekeyIdUsed = message.OneTimePrekeyIdUsed,
             SentAt = message.SentAt,
+            DeliveredAt = message.DeliveredAt,
             ReadAt = message.ReadAt,
             BurnAfterSeconds = message.BurnAfterSeconds
         };

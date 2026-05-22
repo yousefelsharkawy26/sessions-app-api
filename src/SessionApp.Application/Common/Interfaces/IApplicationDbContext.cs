@@ -11,5 +11,7 @@ public interface IApplicationDbContext
     DbSet<Message> Messages { get; }
     DbSet<PrekeyBundle> PrekeyBundles { get; }
     DbSet<OneTimePrekey> OneTimePrekeys { get; }
+    DbSet<Group> Groups { get; }
+    DbSet<GroupMember> GroupMembers { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

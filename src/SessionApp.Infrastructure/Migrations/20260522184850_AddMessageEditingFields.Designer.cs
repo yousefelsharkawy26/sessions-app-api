@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SessionApp.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SessionApp.Infrastructure.Persistence;
 namespace SessionApp.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260522184850_AddMessageEditingFields")]
+    partial class AddMessageEditingFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -241,43 +244,6 @@ namespace SessionApp.Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("SessionApp.Domain.Entities.Group", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Groups");
-                });
-
-            modelBuilder.Entity("SessionApp.Domain.Entities.GroupMember", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("JoinedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("GroupId", "UserId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("GroupMembers");
-                });
-
             modelBuilder.Entity("SessionApp.Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -291,18 +257,13 @@ namespace SessionApp.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("EphemeralKey")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<Guid?>("GroupId")
-                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsEdited")
                         .HasColumnType("boolean");
@@ -314,6 +275,7 @@ namespace SessionApp.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ReceiverId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("SenderId")
@@ -323,12 +285,10 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("SignedPrekeyIdUsed")
+                    b.Property<int>("SignedPrekeyIdUsed")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("GroupId");
 
                     b.HasIndex("ReceiverId");
 
@@ -457,44 +417,19 @@ namespace SessionApp.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SessionApp.Domain.Entities.GroupMember", b =>
-                {
-                    b.HasOne("SessionApp.Domain.Entities.Group", "Group")
-                        .WithMany("Members")
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Group");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("SessionApp.Domain.Entities.Message", b =>
                 {
-                    b.HasOne("SessionApp.Domain.Entities.Group", "Group")
-                        .WithMany("Messages")
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Receiver")
                         .WithMany()
                         .HasForeignKey("ReceiverId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("SessionApp.Domain.Entities.ApplicationUser", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Group");
 
                     b.Navigation("Receiver");
 
@@ -521,13 +456,6 @@ namespace SessionApp.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("SessionApp.Domain.Entities.Group", b =>
-                {
-                    b.Navigation("Members");
-
-                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

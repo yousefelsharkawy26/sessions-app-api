@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SessionApp.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SessionApp.Infrastructure.Persistence;
 namespace SessionApp.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260522185607_AddGroupE2eeTables")]
+    partial class AddGroupE2eeTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -290,9 +293,6 @@ namespace SessionApp.Infrastructure.Migrations
                     b.Property<string>("Ciphertext")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("timestamp with time zone");
