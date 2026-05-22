@@ -38,10 +38,16 @@ src/
   - They are excluded from the global user search results.
   - Direct profile queries by other users return limited information (`Bio = "[Private Profile]"` and `ProfilePictureUrl = null`).
 
-### 3. Real-time Messaging with SignalR
+### 3. End-to-End Encryption (E2EE) with X3DH
+- Supports Signal-style **Extended Triple Diffie-Hellman (X3DH)** prekey exchanges.
+- Securely stores user identity keys, signed prekeys, and a pool of one-time prekeys (OTPs).
+- Dynamic OTP vending: Automatically fetches and vends a single OTP upon request and purges it from the server database to guarantee forward secrecy.
+- Secure blind ciphertext relays: The server stores and routes base64 encrypted payloads alongside cryptographic headers, without access to plaintext content.
+
+### 4. Real-time Messaging & Privacy Safeguards
 - One-on-one instant messaging utilizing a SignalR hub mapped at `/hubs/chat`.
-- Messages are persisted to PostgreSQL.
-- **Privacy Rule**: A user cannot send a message to a private user unless the private user has initiated the conversation by messaging them first.
+- Messages are persisted to PostgreSQL as E2EE envelopes containing the ciphertext and routing parameters (`ephemeralKey`, `signedPrekeyIdUsed`, `oneTimePrekeyIdUsed`).
+- **Privacy Rule**: Senders are blocked from downloading a private user's prekeys or messaging them unless that private user initiated the conversation by messaging them first.
 
 ---
 
@@ -102,9 +108,13 @@ Update the database connection string in `src/SessionApp.API/appsettings.json`:
 - **PUT `/api/profile/update`**: Updates the current user's profile details.
 - **GET `/api/profile/search?searchTerm=<term>`**: Searches public profiles by username or display name.
 
+### Cryptographic Keys (`/api/keys`)
+- **POST `/api/keys/upload`**: Uploads user identity key, signed prekey, signature, and an array of one-time prekeys (OTPs).
+- **GET `/api/keys/bundle/{username}`**: Retrieves a recipient's prekey bundle (verifies privacy setting; vends and purges one OTP).
+
 ### Messages (`/api/message`)
-- **POST `/api/message/send`**: Sends a message to a user (privacy blocking rules applied).
-- **GET `/api/message/chat/{username}`**: Retrieves chat history between the current user and target user.
+- **POST `/api/message/send`**: Relays an E2EE envelope (`ciphertext`, `ephemeralKey`, `signedPrekeyIdUsed`, `oneTimePrekeyIdUsed`) to the recipient.
+- **GET `/api/message/chat/{username}`**: Retrieves chat history between the current user and target user (including full envelope headers).
 
 ### SignalR Chat Hub (`/hubs/chat`)
 Clients can connect to `/hubs/chat` using WebSockets, sending their JWT token in the `access_token` query parameter. Once connected, clients can send and receive real-time message events.

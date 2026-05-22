@@ -24,3 +24,15 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
+    - name: Start API Server
+      run: |
+        dotnet run --project src/SessionApp.API &
+      env:
+        ASPNETCORE_ENVIRONMENT: Development
+    - name: Wait for API Server to Listen
+      run: |
+        for i in {1..30}; do
+          curl -s http://localhost:5108/swagger/index.html && echo "API is ready" && break || sleep 2
+        done
+    - name: Run E2EE Integration Tests
+      run: python3 tests/integration_test.py
